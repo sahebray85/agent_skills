@@ -47,7 +47,7 @@ The portal is a JavaScript SPA behind authentication — it **cannot be fetched 
 | `bulk_waybill` | Generate waybill numbers in bulk |
 | `packing_slip` | Download packing slip / label PDF |
 | `document_download` | Download shipment documents |
-| `invoice_charges` | Fetch invoice and charge details |
+| `invoice_charges` | Calculate shipping cost — pre-shipment estimation (portal name: "Calculate Shipping Cost") AND post-shipment invoice/charge reconciliation. Same endpoint, same params (`md`, `cgm`, `o_pin`, `d_pin`, `ss`, `pt`, `l`, `b`, `h`, `ipkg_type`) for both use cases. |
 | `expected_tat` | Get estimated delivery TAT |
 | `ndr_update` | Respond to Non-Delivery Reports |
 | `ndr_status` | Check NDR bulk upload status |

@@ -13,6 +13,17 @@
 
 ---
 
+## Naming Note: "Calculate Shipping Cost" vs "Invoice Charges"
+
+The Delhivery portal documents the **same API** (`GET /api/kinko/v1/invoice/charges/.json`) under two different page names depending on use case:
+
+- **"Calculate Shipping Cost"** — pre-shipment estimation (before creating a shipment, to show the customer an estimated delivery fee)
+- **"Invoice Charges"** — post-shipment reconciliation (after delivery, to fetch actual/final charges)
+
+Both use identical parameters (`md`, `cgm`, `o_pin`, `d_pin`, `ss`, `pt`, `l`, `b`, `h`, `ipkg_type`) and the same response schema. Do not treat these as two separate APIs — implement once under `invoice_charges`.
+
+---
+
 ## All Endpoint Paths
 
 | API | Method | Path |
@@ -24,7 +35,7 @@
 | NDR Update | POST | `/api/p/update` |
 | Bulk Waybill | GET | `/waybill/api/bulk/json/` |
 | Package Tracking | GET | `/api/v1/packages/json/` |
-| Invoice Charges | GET | `/api/kinko/v1/invoice/charges/.json` |
+| Invoice Charges (aka "Calculate Shipping Cost" on portal) | GET | `/api/kinko/v1/invoice/charges/.json` |
 | Packing Slip | GET | `/api/p/packing_slip` |
 | Expected TAT | GET | `/api/dc/expected_tat` |
 | Pickup Request | POST | `/fm/request/new/` |
