@@ -7,21 +7,26 @@ description: Implement, integrate, and debug any of the 18 Delhivery B2C Logisti
 
 ## Source of Truth Hierarchy
 
-> Official portal docs are the **authoritative source**. MCP is a pre-built cache. Use in this order:
+> Official portal docs are the **authoritative source**. The local `docs/` directory in this skill is a
+> pre-fetched cache of the MCP server's content and is the **default reference** — read it directly with
+> the `Read` tool, no permission or MCP call needed. Use in this order:
 >
 > 1. **Official Portal** — `https://one.delhivery.com/developer-portal/documents/b2c` _(login required)_
-> 2. **MCP tools** — use when portal is not accessible (default path since portal is auth-gated)
-> 3. **`web_search`** — last resort only for undocumented edge cases not covered by portal or MCP
+> 2. **Local `docs/` directory** (this skill folder) — `docs/api/<api_name>.md`, `docs/common/<topic>.md`,
+>    `docs/workflows/<flow_type>.md`. Read these directly by default — they mirror the MCP tool outputs.
+> 3. **MCP tools** — only if a local doc is missing the needed detail, or appears stale/incomplete for the
+>    question at hand
+> 4. **`web_search`** — last resort only for undocumented edge cases not covered by portal, local docs, or MCP
 
 ### Portal Access Workflow
 The portal is a JavaScript SPA behind authentication — it **cannot be fetched programmatically**.
 
 - **When portal content is needed**: Ask the user to navigate to the portal, find the relevant API doc, and paste the content into the chat.
-- **When user provides portal content**: That content **overrides everything** in MCP — use it without question.
-- **Discrepancy rule**: If portal and MCP disagree, use the portal version and add a `// NOTE: portal overrides MCP on <field>` comment in code.
-- **When portal is unavailable**: Fall back to MCP tools transparently — no need to mention the portal.
+- **When user provides portal content**: That content **overrides everything** in local docs/MCP — use it without question.
+- **Discrepancy rule**: If portal and local docs/MCP disagree, use the portal version and add a `// NOTE: portal overrides MCP on <field>` comment in code.
+- **When portal is unavailable**: Use the local `docs/` directory transparently — no need to mention the portal or ask permission.
 
-## MCP Tools Available
+## MCP Tools Available (fallback only — prefer local `docs/` above)
 
 | Tool | When to Use |
 |------|-------------|
@@ -58,27 +63,30 @@ The portal is a JavaScript SPA behind authentication — it **cannot be fetched 
 
 ```
 1. Check if user provided portal doc content → use it as-is (highest priority)
-2. delhivery_mcp-get_api_documentation(api_name)      ← full spec + quirks (default)
-3. delhivery_mcp-get_doc("common", "auth")             ← auth patterns
-4. delhivery_mcp-get_doc("common", "errors")           ← error handling
-5. delhivery_mcp-get_doc("common", "config")           ← URL + timeout config
-6. Implement following the checklist in the API doc
+2. Read docs/api/<api_name>.md                         ← full spec + quirks (default, no MCP needed)
+3. Read docs/common/auth.md                            ← auth patterns
+4. Read docs/common/errors.md                          ← error handling
+5. Read docs/common/config.md                          ← URL + timeout config
+6. Implement following docs/common/checklist.md
+(Only fall back to delhivery_mcp-get_api_documentation(api_name) / get_doc if the local doc is missing something)
 ```
 
 ## Workflow: Debugging an Error
 
 ```
-1. delhivery_mcp-get_diagnostic_info(api_name)         ← error patterns + quirks
+1. Read docs/api/<api_name>.md and docs/common/errors.md  ← error patterns + quirks
 2. Match the error against the error table in the doc
 3. Apply the recommended fix (do NOT retry business logic errors)
+(Fall back to delhivery_mcp-get_diagnostic_info(api_name) only if local docs don't cover the error)
 ```
 
 ## Workflow: Planning Full Integration
 
 ```
-1. delhivery_mcp-get_integration_guide("forward_journey")   ← or "reverse_journey"
+1. Read docs/workflows/forward_journey.md or reverse_journey.md (or overview.md)
 2. Follow the API dependency chain in the guide
 3. Implement each API in dependency order
+(Fall back to delhivery_mcp-get_integration_guide(flow_type) only if local docs are insufficient)
 ```
 
 ## Critical Rules (Always Apply)
