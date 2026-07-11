@@ -107,22 +107,42 @@ paths:
             application/json:
               examples:
                 serviceable:
-                  summary: Serviceable pincode
-                  type: object
+                  summary: Serviceable pincode (real server response)
                   value:
                     delivery_codes:
                       - postal_code:
-                          - remark: ""
+                          remarks: ""
+                          pin: 700001
+                          country_code: "IN"
+                          state_code: "WB"
+                          cod: "Y"
+                          pre_paid: "Y"
+                          pickup: "Y"
+                          cash: "Y"
+                          repl: "Y"
+                          district: "Kolkata"
+                          is_oda: "N"
+                          sort_code: "CCU/CEN"
+                          max_amount: 0.0
+                          max_weight: 0.0
+                          covid_zone: null
+                          inc: "CCU_DUMDUM_CP (West Bengal)"
+                          city: "Kolkata"
+                          sun_tat: false
+                          protect_blacklist: false
+                          srv_wt_th: 10000.0
+                          center:
+                            - code: "IND700016AAA"
+                              cn: "CCU_Entally (West Bengal)"
+                              sort_code: "AF"
                 temporaryDisable:
                   summary: Temporarily disabled (Embargo)
-                  type: object
                   value:
                     delivery_codes:
                       - postal_code:
-                          - remark: "Embargo"
+                          remarks: "Embargo"
                 nonServiceable:
                   summary: Non-serviceable pincode
-                  type: object
                   value:
                     delivery_codes: []
         '401':
@@ -141,6 +161,32 @@ paths:
 
 ---
 
+## Real Response Fields (from live server — NOTE: overrides MCP doc)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `remarks` | string | `""` = serviceable, `"Embargo"` = temporary NSZ. **Field name is `remarks` (plural), not `remark`** |
+| `pin` | int | Pincode |
+| `country_code` | string | e.g. `"IN"` |
+| `state_code` | string | e.g. `"WB"` |
+| `cod` | string | `"Y"`/`"N"` — COD available |
+| `pre_paid` | string | `"Y"`/`"N"` — Pre-paid available |
+| `pickup` | string | `"Y"`/`"N"` — Pickup available |
+| `cash` | string | `"Y"`/`"N"` |
+| `repl` | string | `"Y"`/`"N"` — Return/replacement available |
+| `district` | string | District name |
+| `city` | string | City name |
+| `is_oda` | string | `"Y"`/`"N"` — Out of Delivery Area (ODA surcharge applies if Y) |
+| `sort_code` | string | Hub sort code |
+| `max_amount` | double | Max COD amount (0 = no limit) |
+| `max_weight` | double | Max weight (0 = no limit) |
+| `inc` | string | Hub incharge name |
+| `center` | array | Delivery centers with `code`, `cn` (name), `sort_code` |
+| `sun_tat` | boolean | Sunday delivery available |
+| `srv_wt_th` | double | Service weight threshold in grams |
+
+---
+
 ## Response Interpretation Guide
 
 ### Determining Serviceability
@@ -148,7 +194,7 @@ paths:
 1. Check HTTP status = 200
 2. Parse response body → get `delivery_codes` array
 3. If array is **empty** → Pincode is **Non-Serviceable Zone (NSZ)**
-4. If array has entries → check `remark` field:
+4. If array has entries → check `remarks` field (plural — live server uses `remarks`, not `remark`):
    - Empty string (`""`) → **Serviceable** — order creation and further APIs can proceed
    - `"Embargo"` → **Temporary NSZ** — pincode is temporarily non-serviceable
 

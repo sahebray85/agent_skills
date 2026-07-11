@@ -12,7 +12,7 @@ description: >
 ## Constants (never re-derive these)
 
 ```bash
-REPO="D:/Projects/SharanayaBoutique/repositories/sor-service"
+REPO="$`{pwd}`"
 MVN="/c/Users/saheb/.m2/wrapper/dists/apache-maven-3.9.12-bin/5nmfsn99br87k5d4ajlekdq10k/apache-maven-3.9.12/bin/mvn"
 MAVEN_OPTS="-Xmx768m -XX:+UseSerialGC -XX:MaxMetaspaceSize=256m"
 BASE_BRANCH="development"

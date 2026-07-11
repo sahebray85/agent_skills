@@ -252,6 +252,20 @@ When updating payment mode (`pt` field), the following rules apply:
 
 ---
 
+## CRITICAL Editable Attributes
+
+
+The following attributes of an order can be edited during the lifecycle of a shipment.
+
+
+| Order Status | COD Amount | Pickup Location | Billing Address |Shipping Address | Shipping Mode |
+|--------------|------|---------|--------|--------|--------|
+| Pending | Yes | Yes | Yes | Yes | Yes  |
+| Ready to Ship | Yes | No | Yes | Yes | No  |
+| Ready for Pickup | Yes | No | Yes | Yes | No  |
+| In Transit | Yes | No | Yes | Yes | No  |
+| Out for Delivery | No | No | Yes | No | No |
+
 ## CRITICAL: `status` Field is Dual-Type
 
 The `status` field can be **either boolean or string**:
