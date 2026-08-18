@@ -254,9 +254,7 @@ When updating payment mode (`pt` field), the following rules apply:
 
 ## CRITICAL Editable Attributes
 
-
 The following attributes of an order can be edited during the lifecycle of a shipment.
-
 
 | Order Status | COD Amount | Pickup Location | Billing Address |Shipping Address | Shipping Mode |
 |--------------|------|---------|--------|--------|--------|
