@@ -1,0 +1,16 @@
+Knowledge data seeded: 2026-08-18
+Source: copied from an existing, already-validated build in the Sharanaya
+Boutique customer_parsed_data project (phase2/_reference/), which itself
+built global_postal_code_map.csv from GeoNames' allCountries.zip export.
+geonames_country_info.txt downloaded fresh from
+https://download.geonames.org/export/dump/countryInfo.txt on 2026-08-18.
+
+Not refreshed automatically: india_pincode_state_map.csv,
+india_post_directory_source.csv (India Post directory), and
+mauritius_post_office_codes.csv (user-supplied) -- these have no
+GeoNames-based auto-refresh source. Replace by hand if a fresher copy
+becomes available.
+
+Run scripts/refresh_knowledge.py to re-pull the two GeoNames-sourced
+files. There's no fixed schedule; a reasonable trigger is "a country you
+need comes back with suspiciously stale or missing data."

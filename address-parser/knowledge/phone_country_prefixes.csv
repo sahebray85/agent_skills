@@ -1,0 +1,141 @@
+Country,CountryCode,IDD,NDD
+Afghanistan,+93,00,0
+Albania,+355,00,0
+Algeria,+213,00,0
+Andorra,+376,00,
+Angola,+244,00,0
+Argentina,+54,00,0
+Armenia,+374,00,0
+Australia,+61,0011,0
+Austria,+43,00,0
+Azerbaijan,+994,00,0
+Bahamas,+1,011,1
+Bahrain,+973,00,
+Bangladesh,+880,00,0
+Belarus,+375,8~10,0
+Belgium,+32,00,0
+Belize,+501,00,
+Benin,+229,00,
+Bhutan,+975,00,
+Bolivia,+591,00,0
+Bosnia and Herzegovina,+387,00,0
+Botswana,+267,00,
+Brazil,+55,00xx,0
+Brunei,+673,00,
+Bulgaria,+359,00,0
+Burkina Faso,+226,00,
+Cambodia,+855,001/007,0
+Cameroon,+237,00,
+Canada,+1,011,1
+Chile,+56,00,0
+China,+86,00,0
+Colombia,+57,00x,0
+Costa Rica,+506,00,
+Croatia,+385,00,0
+Cyprus,+357,00,
+Czech Republic,+420,00,
+Denmark,+45,00,
+Dominican Republic,+1,011,1
+Ecuador,+593,00,0
+Egypt,+20,00,0
+El Salvador,+503,00,
+Estonia,+372,00,
+Ethiopia,+251,00,0
+Fiji,+679,00,
+Finland,+358,00,0
+France,+33,00,0
+Gabon,+241,00,
+Gambia,+220,00,
+Georgia,+995,00,0
+Germany,+49,00,0
+Ghana,+233,00,0
+Greece,+30,00,
+Guatemala,+502,00,
+Honduras,+504,00,
+Hong Kong,+852,001,
+Hungary,+36,00,06
+Iceland,+354,00,
+India,+91,00,0
+Indonesia,+62,001/008,0
+Iran,+98,00,0
+Iraq,+964,00,0
+Ireland,+353,00,0
+Israel,+972,00,0
+Italy,+39,00,0
+Japan,+81,010,0
+Jordan,+962,00,0
+Kazakhstan,+7,8~10,0
+Kenya,+254,000,0
+Kuwait,+965,00,
+Kyrgyzstan,+996,00,0
+Laos,+856,00,0
+Latvia,+371,00,
+Lebanon,+961,00,0
+Libya,+218,00,0
+Lithuania,+370,00,
+Luxembourg,+352,00,
+Malaysia,+60,00,0
+Maldives,+960,00,
+Mali,+223,00,
+Malta,+356,00,
+Mexico,+52,00,01
+Moldova,+373,00,0
+Monaco,+377,00,
+Mongolia,+976,001/002,0
+Montenegro,+382,00,0
+Morocco,+212,00,0
+Mozambique,+258,00,0
+Myanmar,+95,00,0
+Namibia,+264,00,0
+Nepal,+977,00,0
+Netherlands,+31,00,
+New Zealand,+64,00,0
+Nicaragua,+505,00,
+Niger,+227,00,
+Nigeria,+234,009,0
+North Korea,+850,00,
+Norway,+47,00,
+Oman,+968,00,
+Pakistan,+92,00,0
+Panama,+507,00,
+Papua New Guinea,+675,00,
+Paraguay,+595,00,0
+Peru,+51,00,0
+Philippines,+63,00,0
+Poland,+48,00,0
+Portugal,+351,00,0
+Qatar,+974,00,
+Romania,+40,00,0
+Russia,+7,8~10,0
+Rwanda,+250,00,
+Saudi Arabia,+966,00,0
+Senegal,+221,00,
+Serbia,+381,00,0
+Singapore,+65,001,
+Slovakia,+421,00,
+Slovenia,+386,00,
+South Africa,+27,00,0
+South Korea,+82,001/002,0
+Spain,+34,00,
+Sri Lanka,+94,00,0
+Sudan,+249,00,0
+Sweden,+46,00,0
+Switzerland,+41,00,0
+Syria,+963,00,0
+Taiwan,+886,002/005,0
+Tajikistan,+992,00,0
+Tanzania,+255,00,0
+Thailand,+66,001/009,0
+Turkey,+90,00,0
+Uganda,+256,00,0
+Ukraine,+380,00,0
+United Arab Emirates,+971,00,
+United Kingdom,+44,00,0
+United States,+1,011,1
+Uruguay,+598,00,0
+Uzbekistan,+998,00,0
+Venezuela,+58,00,0
+Vietnam,+84,00,0
+Yemen,+967,00,0
+Zambia,+260,00,0
+Zimbabwe,+263,00,0
