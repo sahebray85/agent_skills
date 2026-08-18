@@ -1,0 +1,38 @@
+# Tunable knobs for the address-parser skill. Edit this file to retune
+# behavior -- scripts/core.py reads it at runtime. Never hand-edit the
+# matching logic in core.py to change a threshold; add a knob here instead.
+#
+# If PyYAML isn't installed, core.py silently falls back to its own
+# built-in defaults (identical to the values below) -- editing this file
+# only takes effect once PyYAML is available.
+
+require_corroboration_for_digit_formats: true
+
+# Points awarded when building the "confidence" score returned with every
+# match. Not a probability -- a relative ranking signal for how many
+# independent things support this match. Retune freely; nothing else in
+# core.py depends on the exact numbers, only their relative size.
+confidence_points:
+  map_validated: 40          # base score: the candidate is a real, known postal code
+  phone_corroborated: 20     # the customer's phone dial-code also points at this country
+  keyword_corroborated: 20   # the country's own name appears in the address text
+  alpha_format_self_gated: 15  # letter-containing formats (UK/CA/IE-shaped) are distinctive enough alone
+  contradiction_penalty: -100  # reserved for future use if contradictions are ever scored instead of dropped
+
+# Per-country behavior overrides. Three supported values:
+#   always_require_corroboration -- treat this country as digit-format
+#     (needs phone or keyword support) even if its GeoNames format looks
+#     letter-based or otherwise self-gating.
+#   self_gating -- treat this country as safe to attempt WITHOUT phone/
+#     keyword corroboration, even though its format is pure digits.
+#   never_attempt -- skip this country's pattern entirely, even if it has
+#     rows in the knowledge/global_postal_code_map.csv.
+country_overrides:
+  AE: always_require_corroboration  # UAE's postal data is synthetic Makani-style, not a real postal system
+  IN: self_gating  # India's map is a complete, authoritative 165K-row India Post
+                    # directory -- a bare 6-digit match validating against it is
+                    # safe on its own. Required so a genuinely-Indian address with
+                    # a foreign-looking phone (the mirror image of the P2-37
+                    # fake-Indian-phone pattern) still resolves -- confirmed with a
+                    # real case during this skill's own validation (Kochi, Kerala
+                    # address with a +1 NANP phone number).
