@@ -44,6 +44,7 @@ real Saudi source (like the Mauritius file) is supplied.
 
 import csv
 import re
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -51,6 +52,12 @@ try:
     import yaml
 except ImportError:
     yaml = None
+
+try:
+    from cache_manager import maybe_trigger_background_refresh
+except ImportError:
+    def maybe_trigger_background_refresh(config):
+        return False
 
 SKILL_DIR = Path(__file__).resolve().parent.parent
 KNOWLEDGE_DIR = SKILL_DIR / "knowledge"
@@ -94,6 +101,10 @@ def _clean_digits(s):
 def load_config():
     defaults = {
         "require_corroboration_for_digit_formats": True,
+        "knowledge_cache": {
+            "expiry_days": 60,
+            "auto_refresh": True,
+        },
         "confidence_points": {
             "map_validated": 40,
             "phone_corroborated": 20,
@@ -216,6 +227,9 @@ def load_postal_map(country_info):
 class AddressParser:
     def __init__(self):
         self.config = load_config()
+        if maybe_trigger_background_refresh(self.config):
+            print("address-parser: knowledge cache is stale, refreshing in the "
+                  "background (this run still uses the current data)", file=sys.stderr)
         self.country_info = load_country_info()
         self.name_to_iso2 = build_name_to_iso2(self.country_info)
         self.dialcode_to_iso2 = build_dialcode_to_iso2(self.country_info)
@@ -263,8 +277,15 @@ class AddressParser:
         info = self.country_info.get(iso2)
         if not info or not info["pattern"]:
             return []
+        # Outer order: last-in-text match first (trailing zip/postcode
+        # convention). Inner order, PER match: most-specific variant
+        # first -- callers take the first validated hit, so within one
+        # match a short accidental prefix (e.g. "B2") must never be
+        # preferred over the fuller, correct code ("B20") just because
+        # it also happens to validate against the map.
         out = []
-        for m in info["pattern"].finditer(text or ""):
+        matches = list(info["pattern"].finditer(text or ""))
+        for m in reversed(matches):
             raw = m.group(0).strip().upper()
             collapsed = re.sub(r"\s+", " ", raw)
             no_space = re.sub(r"\s+", "", raw)
@@ -276,10 +297,12 @@ class AddressParser:
                 # Ireland's Eircode "D15X4Y0" -> map key "D15"), and real
                 # addresses often omit the separating space entirely
                 # ("D15X4Y0", not "D15 X4Y0"), so whitespace-splitting
-                # alone can't find it. Only tried for letter-containing
-                # formats -- a short numeric prefix risks colliding with
-                # an unrelated country's own full-length numeric code.
-                variants += [no_space[:2], no_space[:3], no_space[:4]]
+                # alone can't find it. Longest prefix first -- most
+                # specific still wins if multiple prefix lengths validate.
+                # Only tried for letter-containing formats -- a short
+                # numeric prefix risks colliding with an unrelated
+                # country's own full-length numeric code.
+                variants += [no_space[:4], no_space[:3], no_space[:2]]
             for variant in variants:
                 if variant and variant not in out:
                     out.append(variant)
@@ -343,7 +366,7 @@ class AddressParser:
             return (iso2 in diag["phone_isos"]) + (iso2 in diag["keyword_isos"])
         candidates = sorted(candidates, key=lambda iso2: (-corroboration_strength(iso2), iso2))
         for iso2 in candidates:
-            for cand in reversed(self.candidates_for(iso2, address1)):  # last-in-text wins
+            for cand in self.candidates_for(iso2, address1):  # already ordered: last-in-text, most-specific first
                 if cand in self.postal_map.get(iso2, {}):
                     contradictions = self.check_contradiction(iso2, address1)
                     if contradictions:

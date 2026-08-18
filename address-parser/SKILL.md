@@ -56,11 +56,23 @@ overrides like India's or UAE's) -- edit that, not the matching logic in
 
 ## Refreshing the knowledge base
 
-Knowledge data (not the logic) goes stale as postal systems change. Run
-`python scripts/refresh_knowledge.py <today's date>` to re-pull the two
-GeoNames-sourced files; see the script's own docstring for what it does and
-doesn't cover (India Post and Mauritius data have no auto-refresh source).
-Check `knowledge/LAST_REFRESHED.txt` for when this last happened.
+Automatic, stale-while-revalidate: every `AddressParser()` construction
+checks `knowledge/cache_meta.json`'s `downloaded_at` against
+`config.yaml`'s `knowledge_cache.expiry_days` (60 by default). Past that,
+it kicks off `refresh_knowledge.py` as a fully detached background
+subprocess and immediately continues using the **existing** knowledge
+files -- a refresh never blocks a parse or a batch run. The subprocess
+downloads to temp files and atomically swaps them in, so a concurrent
+read never sees a half-written file; only the *next* invocation, after
+the swap, sees the fresh data. A lock file prevents piling up duplicate
+downloads if several invocations happen while one is already running.
+
+You normally never need to run anything by hand. To force an immediate
+refresh anyway: `python scripts/refresh_knowledge.py`. Check
+`knowledge/LAST_REFRESHED.txt` or `cache_meta.json` for when this last
+happened, and `knowledge/refresh_last_run.log` for the most recent run's
+output. See the script's own docstring for what it does and doesn't cover
+(India Post and Mauritius data have no auto-refresh source).
 
 ## Writing Java
 

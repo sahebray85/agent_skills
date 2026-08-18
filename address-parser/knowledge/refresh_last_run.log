@@ -1,0 +1,5 @@
+Refreshed C:\Users\saheb\.claude\skills\address-parser\knowledge\geonames_country_info.txt
+Downloading GeoNames allCountries.zip (can take a few minutes)...
+Raw rows: 1826904  Deduped rows: 766334  Countries with usable state data: 88  Conflicts resolved: 563
+Refreshed C:\Users\saheb\.claude\skills\address-parser\knowledge\global_postal_code_map.csv
+Stamped C:\Users\saheb\.claude\skills\address-parser\knowledge\LAST_REFRESHED.txt (success=True)

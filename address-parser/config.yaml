@@ -8,6 +8,18 @@
 
 require_corroboration_for_digit_formats: true
 
+# Governs when the GeoNames-sourced knowledge files (global_postal_code_map.csv,
+# geonames_country_info.txt) get auto-refreshed. Checked on every AddressParser()
+# construction (cheap: one small JSON read) -- see scripts/cache_manager.py.
+# When knowledge/cache_meta.json's downloaded_at is >= expiry_days old, a
+# background refresh is kicked off as a detached subprocess; the CURRENT run
+# keeps using the existing (old) knowledge files unchanged -- refreshing never
+# blocks a parse. Only the NEXT invocation, after the background refresh has
+# finished and atomically swapped the files in, sees the fresh data.
+knowledge_cache:
+  expiry_days: 60
+  auto_refresh: true  # set false to disable automatic background refresh entirely
+
 # Points awarded when building the "confidence" score returned with every
 # match. Not a probability -- a relative ranking signal for how many
 # independent things support this match. Retune freely; nothing else in
