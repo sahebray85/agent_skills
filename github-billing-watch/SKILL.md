@@ -1,30 +1,45 @@
 ---
 name: github-billing-watch
-description: Reports GitHub org and enterprise billing (month-to-date cost by product and SKU, budgets and hard stops, real vs billed storage against the Free plan's 0.5 GB, billing-lock signals) and safely prunes GitHub Actions artifacts and GitHub Packages versions through a reviewed dry-run plan. Use when the user asks about GitHub cost, bill, invoice, budgets, spending limits, storage or quota, "data transfer out quota has been exceeded", nameless startup_failure runs, or wants to clean up, prune or delete old artifacts or package versions.
+description: Reports GitHub org and enterprise billing (month-to-date cost by product and SKU, charges still accruing, budgets and hard stops, plan allowance used in Actions minutes and storage GB-hours, real vs billed storage, billing-lock signals), safely prunes GitHub Actions artifacts and GitHub Packages versions through a reviewed dry-run plan, and walks through changing plan (Free, Team, Enterprise) and leaving or deleting an enterprise. Use when the user asks about GitHub cost, bill, invoice, seats, budgets, spending limits, storage or quota, "402 Payment Required" on mvn deploy or a package publish, "data transfer out quota has been exceeded", nameless startup_failure runs, switching GitHub plan, or wants to clean up, prune or delete old artifacts or package versions.
 ---
 
 # GitHub billing watch
 
-Two scripts in `scripts/` next to this file, driven by an authenticated `gh` (org admin + billing read). Run them as
-`python "<this skill's dir>/scripts/<script>.py"`, with forward slashes or a quoted path. Defaults:
-`--org sharanaya-boutique`, `--enterprise krishna-ai-solutions` (pass `--enterprise ""` once the org leaves it).
+Scripts in `scripts/` next to this file, driven by an authenticated `gh` (org admin + billing read). Run them as
+`python "<this skill's dir>/scripts/<script>.py"`, with forward slashes or a quoted path. Default: `--org
+sharanaya-boutique`. Pass `--enterprise SLUG` only when an enterprise bills the org.
 
 ## Monitor (read-only, any time)
 
 ```
-python scripts/report.py [--month YYYY-MM]
+python scripts/report.py [--month YYYY-MM] [--enterprise SLUG]
 ```
 
 Read it in this order and report figures, not guesses:
 1. **Billing-lock signals.** A repo whose latest run is a nameless `startup_failure` (path `BuildFailed`) is
-   billing-locked, not broken YAML. While locked, no CI result proves anything.
-2. **Storage.** REAL is the bytes stored now. BILLED is yesterday's average from the usage API, which lags a day and
-   has no hourly view. BILLED far above REAL the day after a cleanup is normal; check again the next day.
-3. **Usage.** Net > 0 on a metered SKU means the free allowance is used up or the SKU has no free tier. Licence SKUs
-   (Enterprise Cloud, Code Quality licences) are always net > 0 and no budget can cap them.
-4. **Budgets.** Org budgets don't stop usage billed through an enterprise; check the enterprise budgets too.
+   billing-locked, not broken YAML. "Stale" means a normal run elsewhere is newer, so the lock has lifted.
+2. **Storage.** REAL is the bytes stored now. BILLED is yesterday's average from the usage API, which lags a day.
+   A repo billed with no live package means deleted versions are still billing.
+3. **Usage.** Sorted by net cost. A `charged:` line shows how many days a SKU charged and the latest day, which is how
+   you see a licence still charging after it was switched off.
+4. **Allowance.** Minutes and storage GB-hours used this month against the plan's allowance. This, not the bytes
+   stored now, decides when CI stops or uploads are refused.
+5. **Budgets.** An org budget doesn't stop usage billed through an enterprise; check the enterprise budgets too.
 
 Explain what a figure means before recommending anything; see [REFERENCE.md](REFERENCE.md) for the billing rules.
+
+## Uploads refused: HTTP 402 Payment Required
+
+`mvn deploy` (or any package publish) fails with `status code: 402`, and jobs that need it are skipped.
+- [ ] 1. Run `report.py`. Storage allowance at or past 100% with a $0 hard-stop Packages budget is the cause.
+- [ ] 2. Offer the fixes; the user chooses:
+      - add a payment method and raise the Packages budget a little (the user's billing page). Estimate the cost
+        from the billed GB: GB × days left × the storage rate in REFERENCE.md;
+      - or stop publishing: `maven.deploy.skip` on modules nobody downloads, or skip the publish step;
+      - or wait for the month to reset.
+- [ ] 3. Verify: re-run the failed workflow and confirm the publish step passes.
+
+A cleanup alone doesn't fix it: deleted versions keep billing until they purge.
 
 ## Clean up (destructive: follow every step)
 
@@ -45,10 +60,24 @@ Explain what a figure means before recommending anything; see [REFERENCE.md](REF
 - [ ] 6. `python scripts/prune.py apply "<plan.json>"` deletes exactly the reviewed targets: paced, 404 counted as
       done, aborts if the first deletes all fail. For more than ~200 targets run it in the background.
 - [ ] 7. Verify: re-run the same dry run (expect 0 deletes) and `report.py` (REAL storage dropped). BILLED storage
-      drops in the next day's usage.
+      can stay high for up to 30 days, because deleted package versions keep billing until they purge.
 
 Never delete without a dry run the user saw. Never delete a version a `--pin` protects. Never `--drop` a package
 another repo resolves from GitHub Packages.
+
+## Change plan, or leave or delete an enterprise
+
+Billing-page steps are the user's. Your part is the checks before and after. Details and commands are in
+[REFERENCE.md](REFERENCE.md) under "Plans" and "Enterprise".
+- [ ] 1. Run `report.py`. Compare this month's minutes and storage with the target plan's allowance. Allowances are
+      per account, so more seats raise the cost and not the allowance.
+- [ ] 2. List what the target plan switches off in private repos: org secrets (find repos with no repo-level copy),
+      rulesets and branch protection, draft PRs.
+- [ ] 3. User: settle any open invoice, then remove the org from the enterprise. It drops to Free.
+- [ ] 4. User: upgrade straight afterwards if moving to Team, so the Free gaps from step 2 stay short.
+- [ ] 5. User: delete the emptied enterprise. It keeps billing a seat and licences until it is deleted.
+- [ ] 6. Verify: the plan name, the enterprise returns 404, a CI run passes in a repo that relies on org secrets,
+      a publish step passes, and the next day's `report.py` shows no new licence charge.
 
 ## Stop regrowth (offer; don't do it unasked)
 
@@ -56,4 +85,5 @@ another repo resolves from GitHub Packages.
 - Org-wide: `gh api -X PUT /orgs/ORG/actions/permissions/artifact-and-log-retention -F days=N`. This also shortens
   how long run logs are kept.
 - `<maven.deploy.skip>true</maven.deploy.skip>` on modules nobody downloads, such as Spring Boot jars.
-- Re-run `report.py` monthly, or whenever a bill or a quota error shows up.
+- Re-run `report.py` monthly, or whenever a bill or a quota error shows up. `python scripts/selftest.py` checks the
+  scripts' logic without the network.

@@ -38,7 +38,7 @@ def parse_time(s):
     return dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
 
 
-# ---- keep rules (pure; covered by test_prune.py) ----
+# ---- keep rules (pure; covered by selftest.py) ----
 
 def artifacts_to_delete(arts, now, keep_days, keep_newest):
     """Keep an artifact if it is younger than keep_days OR among the newest keep_newest of its repo."""
