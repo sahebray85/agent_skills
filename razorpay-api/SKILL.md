@@ -12,7 +12,7 @@ description: Reference for the official Razorpay MCP server (all 45 tools) and t
 2. **This skill's local docs** — default reference, read directly. `REFERENCE.md` and the tool
    sections of `docs/api/*.md` are generated from `razorpay-mcp-server` source
    (refresh: `scripts/refresh_tool_docs.py`).
-3. **Official raw-markdown docs** when a detail is missing: index `https://razorpay.com/docs/llms.txt`;
+3. **Official MCP tools list** `https://razorpay.com/docs/mcp-server/tools-reference.md` (39 tools; omits 6 — see REFERENCE.md) and **official raw-markdown docs** when a detail is missing: index `https://razorpay.com/docs/llms.txt`;
    any `razorpay.com/docs/api/<path>` page ↔ `razorpay.com/docs/build/llm-docs/api/<path>.md`.
 
 Local docs are a snapshot. If they disagree with the official page, **the official page wins** —

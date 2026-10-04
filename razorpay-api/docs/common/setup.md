@@ -12,6 +12,8 @@
 | Guarantee no money-moving calls | Local with `READ_ONLY=true`, or remote via OAuth (only scope is `read_only`) |
 | Limit surface area | Local with `TOOLSETS=payments,orders,...` (default `all`) |
 
+Official docs mark the MCP server as available in India only.
+
 Toolset names: `payments`, `orders`, `payment_links`, `refunds`, `qr_codes`, `settlements`,
 `payouts`, `registration_links`, `checkout_integration`.
 

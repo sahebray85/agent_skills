@@ -77,6 +77,14 @@ code names are:
 | `send_payment_link` | `payment_link_notify` |
 | `fetch_payout_by_id` | `fetch_payout_with_id` |
 
+### Official tools-reference page vs code (checked 2026-10-04)
+
+`https://razorpay.com/docs/mcp-server/tools-reference.md` lists 39 tools ("35+" in its prose), not 45.
+It omits `initiate_payment`, `resend_otp`, `submit_otp`, `fetch_tokens`, `revoke_token` and
+`create_registration_link` (all present in code). Its Remote column marks only `create_refund`,
+`close_qr_code`, `create_instant_settlement` as Local-only; `create_registration_link` being
+Local-only comes from source. Page header says "Available in India" only.
+
 In Claude Code the tools appear as `mcp__<server-name>__<tool>`, e.g. `mcp__razorpay__create_order`.
 
 ## ID prefixes
@@ -91,6 +99,7 @@ In Claude Code the tools appear as `mcp__<server-name>__<tool>`, e.g. `mcp__razo
 - Any API page `https://razorpay.com/docs/api/<path>` has a raw markdown twin at
   `https://razorpay.com/docs/build/llm-docs/api/<path>.md`
   (e.g. `.../llm-docs/api/payments/capture.md`, `.../llm-docs/api/refunds/create-instant.md`).
+- MCP tools list (compare names / Remote support): `https://razorpay.com/docs/mcp-server/tools-reference.md`
 - Errors: `https://razorpay.com/docs/build/llm-docs/errors.md`
 - Webhooks: `https://razorpay.com/docs/build/llm-docs/webhooks.md`,
   `.../llm-docs/webhooks/validate-test.md`
