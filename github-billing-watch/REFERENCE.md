@@ -117,6 +117,11 @@ Allowances are **per account, not per seat**: adding members raises the cost and
 
 ## Container images (GHCR)
 
+- **The billing page bar ("0.5 GB used / 0.5 GB included") is month-to-date accumulation (GB-hours), not what is stored now.**
+  Deleting packages stops further accrual but never lowers it within the month; it resets on the 1st. After a cleanup
+  judge success by the daily billed GB-hours (`report.py` BILLED line, or the usage API per day) falling to ~0.
+  Once the month's overage has accrued, a $1 Packages hard-stop budget keeps returning HTTP 402 until the 1st or a higher budget.
+
 - `GET /orgs/ORG/packages?package_type=container` lists them; versions are at `.../packages/container/NAME/versions`.
   Names can contain `/` (e.g. `sor-service/sor-db`): URL-encode them in paths (`prune.py` does).
 - **No sizes anywhere.** The GraphQL `PackageFile.size` query behind `report.py`'s REAL line returns nothing for
@@ -126,6 +131,7 @@ Allowances are **per account, not per seat**: adding members raises the cost and
   a tagged multi-arch image; leave them unless the whole image goes.
 - CI that tags every build (`sha-…`, version, branch) grows without bound: one image reached 644 versions. Consider a
   scheduled cleanup or keeping only release tags.
+- Builds push many `-SNAPSHOT` tags per release, so "newest N tagged" can contain no release at all (sor-service: 0.37.0 sat behind ~9 snapshots). `--keep-releases` (default 3) keeps the newest releases, i.e. tags with no `snapshot` in them, so rollback always has a target.
 - Find what is deployed in the deploy repo's compose files and `.env` version vars, and protect those tags.
 
 ## Artifacts

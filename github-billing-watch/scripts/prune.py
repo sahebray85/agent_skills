@@ -3,7 +3,7 @@
 
   prune.py artifacts [--keep-days 10] [--keep-newest 10]                       dry run -> plan JSON
   prune.py packages  [--keep-snapshots 10] [--keep-releases 10] [--pin PREFIX:VERSION]... [--drop NAME]...
-  prune.py containers [--keep-newest 10] [--protect [IMAGE:]TAG]... [--drop NAME]...   GHCR images, tagged versions
+  prune.py containers [--keep-newest 10] [--keep-releases 3] [--protect [IMAGE:]TAG]... [--drop NAME]...   GHCR images, tagged versions
   prune.py apply PLAN_JSON                                                      deletes exactly the plan's targets
 
 Dry runs only read. `apply` is the only command that deletes. Deleted artifacts are gone for good; deleted packages
@@ -67,14 +67,24 @@ def container_tags(v):
     return ((v.get("metadata") or {}).get("container") or {}).get("tags") or []
 
 
-def container_versions_to_delete(name, versions, keep_newest, protect):
-    """Delete only TAGGED container versions. Keep the newest N, `latest`, and any protected tag.
+def is_container_release(v):
+    """A release has tags and none is a SNAPSHOT (`0.38.0`, `0.19.0-prod`, `latest`); `1.2-SNAPSHOT`, `snapshot` are not."""
+    tags = container_tags(v)
+    return bool(tags) and not any("snapshot" in t.lower() for t in tags)
+
+
+def container_versions_to_delete(name, versions, keep_newest, protect, keep_releases=0):
+    """Delete only TAGGED container versions. Keep the newest N, the newest M releases, `latest`, and any protected tag.
+
+    CI pushes many -SNAPSHOT builds per release, so the newest N alone can hold no release at all: keep_releases
+    guarantees the last M release versions survive for rollback.
 
     `protect` holds bare tags (any image) or (image, tag) pairs. Untagged versions are never planned: on GHCR they are
     usually child manifests or layers of a kept multi-arch tag, and deleting them can break that tag.
     """
     tagged = sorted((v for v in versions if container_tags(v)), key=lambda v: v["created_at"], reverse=True)
     keep = {v["id"] for v in tagged[:keep_newest]}
+    keep |= {v["id"] for v in [v for v in tagged if is_container_release(v)][:keep_releases]}
     for v in tagged:
         if any(t == "latest" or t in protect or (name, t) in protect for t in container_tags(v)):
             keep.add(v["id"])
@@ -177,7 +187,7 @@ def cmd_containers(a):
             targets.append({"path": base, "label": f"whole image {name}"})
             continue
         versions = gh_list(f"{base}/versions?per_page=100")
-        delete = container_versions_to_delete(name, versions, a.keep_newest, protect)
+        delete = container_versions_to_delete(name, versions, a.keep_newest, protect, a.keep_releases)
         tagged = [v for v in versions if container_tags(v)]
         used |= {p for v in tagged for t in container_tags(v) for p in (t, (name, t)) if p in protect}
         print(f"{name:<34} {len(versions):>5} {len(tagged):>6} {len(tagged) - len(delete):>5} {len(delete):>5} "
@@ -189,7 +199,7 @@ def cmd_containers(a):
     for p in protect - used:
         print(f"WARN --protect {p if isinstance(p, str) else ':'.join(p)} matched no version: typo, or already gone")
     print("NOTE GitHub does not expose container sizes, so no MB column. Check each kept image still pulls after apply.")
-    rule = f"keep latest + newest {a.keep_newest} tagged + protect {sorted(map(str, a.protect)) or 'none'}; drop {a.drop or 'none'}"
+    rule = f"keep latest + newest {a.keep_newest} tagged + newest {a.keep_releases} releases + protect {sorted(map(str, a.protect)) or 'none'}; drop {a.drop or 'none'}"
     write_plan("containers", a.org, rule, targets)
 
 
@@ -242,6 +252,8 @@ def main():
     pkg.add_argument("--drop", action="append", default=[], help="delete this whole package")
     con = sub.add_parser("containers", help="dry run: plan GHCR container image version deletes")
     con.add_argument("--keep-newest", type=int, default=10, help="newest tagged versions kept per image")
+    con.add_argument("--keep-releases", type=int, default=3,
+                     help="also keep the newest N non-SNAPSHOT release versions per image (rollback floor)")
     con.add_argument("--protect", action="append", default=[], help="[IMAGE:]TAG deployed or pinned somewhere (deploy repo)")
     con.add_argument("--drop", action="append", default=[], help="delete this whole image")
     for s in (art, pkg, con):

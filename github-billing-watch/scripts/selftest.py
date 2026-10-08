@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from prune import artifacts_to_delete, container_versions_to_delete, versions_to_delete  # noqa: E402
+from prune import artifacts_to_delete, container_versions_to_delete, is_container_release, versions_to_delete  # noqa: E402
 from report import HOURS_PER_MONTH, allowance_used, billed_without_live, lock_state  # noqa: E402
 
 now = dt.datetime(2026, 1, 31, tzinfo=dt.timezone.utc)
@@ -46,6 +46,15 @@ assert cids() == [1], "newest 10 tagged kept, `latest` kept even when old, untag
 assert cids({"v1"}) == [], "a bare protected tag is kept for any image"
 assert cids({("other", "v1")}) == [1], "an IMAGE:TAG protect only applies to its own image"
 assert cids({("img", "v1")}) == []
+
+
+# 9 newer SNAPSHOT builds bury the releases: newest-10 alone would keep no release.
+def ctags(i, *tags): return cver(i, *tags)
+rel = [ctags(i, f"1.{i}.0") for i in range(1, 5)] + [ctags(10 + i, f"2.{i}.0-SNAPSHOT") for i in range(1, 13)]
+rd = lambda m: sorted(v["id"] for v in container_versions_to_delete("img", rel, 10, set(), m))
+assert rd(0) == [1, 2, 3, 4, 11, 12], "without the floor every release is dropped"
+assert rd(3) == [1, 11, 12], "the newest 3 releases survive"
+assert [is_container_release(v) for v in (cver(1, "0.19.0", "latest"), cver(2, "0.19.1-SNAPSHOT", "snapshot"), cver(3))] == [True, False, False]
 
 def item(product, sku, unit, qty):
     return {"product": product, "sku": sku, "unitType": unit, "quantity": qty}
