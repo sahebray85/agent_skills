@@ -7,6 +7,7 @@ budgets, warnings. Needs an authenticated `gh` with org admin + billing read. Ne
   python report.py [--org ORG] [--enterprise SLUG] [--month YYYY-MM]
 """
 import argparse
+import urllib.parse
 import datetime as dt
 import json
 import subprocess
@@ -130,6 +131,23 @@ def package_sizes(org):
         cursor = page["pageInfo"]["endCursor"]
 
 
+def container_inventory(org):
+    """GHCR images. GitHub exposes no container sizes (the GraphQL query above misses them), so count versions."""
+    section("Container images (GHCR): version counts only, GitHub exposes no sizes")
+    rows = []
+    for pkg in gh_list(f"/orgs/{org}/packages?package_type=container&per_page=100"):
+        vs = gh_list(f"/orgs/{org}/packages/container/{urllib.parse.quote(pkg['name'], safe='')}/versions?per_page=100")
+        tagged = sum(1 for v in vs if ((v.get("metadata") or {}).get("container") or {}).get("tags"))
+        rows.append((pkg["name"], len(vs), tagged))
+    for name, total, tagged in sorted(rows, key=lambda r: -r[1])[:8]:
+        print(f"  image    {name:<44} {total:>4} versions ({tagged} tagged, {total - tagged} untagged)")
+    total = sum(r[1] for r in rows)
+    print(f"  {len(rows)} images, {total} versions in all")
+    if total > 20 * max(len(rows), 1):
+        WARNINGS.append(f"{total} container versions across {len(rows)} images: the billing page's Packages storage counts "
+                        "them but the REAL line above does not. Plan with: prune.py containers")
+
+
 def storage(org, repos):
     section("Storage (real bytes now vs billed yesterday)")
     pkgs, truncated = package_sizes(org)
@@ -147,8 +165,10 @@ def storage(org, repos):
         art_bytes, art_count = art_bytes + size, art_count + len(live)
         if live:
             print(f"  artifacts {repo:<49} {len(live):>4} live     {size / 1024**2:>9.1f} MB")
-    print(f"  REAL: packages {pkg_bytes / GB:.3f} GB{' (undercount: >100 versions/files)' if truncated else ''}"
+    print(f"  REAL (Maven etc., not containers): packages {pkg_bytes / GB:.3f} GB{' (undercount: >100 versions/files)' if truncated else ''}"
           f" + artifacts {art_bytes / GB:.3f} GB ({art_count}) = {(pkg_bytes + art_bytes) / GB:.3f} GB")
+
+    soft(container_inventory, org)
 
     day = dt.datetime.now(dt.timezone.utc).date() - dt.timedelta(days=1)
     data = soft(gh, f"/organizations/{org}/settings/billing/usage?year={day.year}&month={day.month}&day={day.day}")
