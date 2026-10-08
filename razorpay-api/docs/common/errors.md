@@ -15,7 +15,8 @@ Success is HTTP 200 (some creates return 201/202). Failures return:
 
 `code` ∈ `BAD_REQUEST_ERROR` (fix the request — do not retry as-is), `GATEWAY_ERROR`,
 `SERVER_ERROR` (retry with backoff). Branch on `reason` programmatically; show `description` to
-operators, not customers. HTTP 429 = throttled → exponential backoff.
+operators, not customers. HTTP 429 = throttled → exponential backoff. Per-payment-method `source` /
+`step` / `reason` values: [index/errors.md](../index/errors.md).
 
 The MCP server wraps failures as a tool **error result** with text like
 `creating order failed: <razorpay description>` or `missing required parameter: amount` — schema

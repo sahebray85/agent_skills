@@ -25,6 +25,8 @@ on it; deliveries can repeat). Never parse/re-serialize the body before verifyin
 `refund.created` · `refund.processed` · `refund.failed` · `refund.speed_changed` ·
 `payment_link.paid` · `payment_link.partially_paid` · `payment_link.expired` ·
 `payment_link.cancelled` · `qr_code.created` · `qr_code.credited` · `qr_code.closed`.
+Other families (subscriptions, disputes, settlements, invoices, Route, Smart Collect, payouts) and
+sample payloads: [index/webhooks.md](../index/webhooks.md) → `webhooks/all.md`.
 
 Delivery rules (Razorpay webhook best-practices doc):
 - **At-least-once**: duplicates are normal → dedupe on `x-razorpay-event-id`.
