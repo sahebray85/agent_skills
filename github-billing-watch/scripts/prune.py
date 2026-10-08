@@ -3,6 +3,7 @@
 
   prune.py artifacts [--keep-days 10] [--keep-newest 10]                       dry run -> plan JSON
   prune.py packages  [--keep-snapshots 10] [--keep-releases 10] [--pin PREFIX:VERSION]... [--drop NAME]...
+  prune.py containers [--keep-newest 10] [--protect [IMAGE:]TAG]... [--drop NAME]...   GHCR images, tagged versions
   prune.py apply PLAN_JSON                                                      deletes exactly the plan's targets
 
 Dry runs only read. `apply` is the only command that deletes. Deleted artifacts are gone for good; deleted packages
@@ -16,6 +17,7 @@ import sys
 import tempfile
 import time
 from collections import defaultdict
+import urllib.parse
 from pathlib import Path
 
 PLAN_DIR = Path(tempfile.gettempdir()) / "github-billing-watch"
@@ -59,6 +61,24 @@ def versions_to_delete(name, versions, keep_snapshots, keep_releases, pins):
     keep = {v["id"] for v in snapshots[:keep_snapshots] + releases[:keep_releases]}
     keep |= {v["id"] for v in versions if any(name.startswith(p) and v["name"] == ver for p, ver in pins)}
     return [v for v in newest_first if v["id"] not in keep]
+
+
+def container_tags(v):
+    return ((v.get("metadata") or {}).get("container") or {}).get("tags") or []
+
+
+def container_versions_to_delete(name, versions, keep_newest, protect):
+    """Delete only TAGGED container versions. Keep the newest N, `latest`, and any protected tag.
+
+    `protect` holds bare tags (any image) or (image, tag) pairs. Untagged versions are never planned: on GHCR they are
+    usually child manifests or layers of a kept multi-arch tag, and deleting them can break that tag.
+    """
+    tagged = sorted((v for v in versions if container_tags(v)), key=lambda v: v["created_at"], reverse=True)
+    keep = {v["id"] for v in tagged[:keep_newest]}
+    for v in tagged:
+        if any(t == "latest" or t in protect or (name, t) in protect for t in container_tags(v)):
+            keep.add(v["id"])
+    return [v for v in tagged if v["id"] not in keep]
 
 
 # ---- dry runs ----
@@ -144,6 +164,35 @@ def cmd_packages(a):
     write_plan(f"packages-{a.type}", a.org, rule, targets)
 
 
+def cmd_containers(a):
+    protect = {tuple(p.split(":", 1)) if ":" in p else p for p in a.protect}
+    seen, used, targets = set(), set(), []
+    print(f"{'image':<34} {'total':>5} {'tagged':>6} {'keep':>5} {'del':>5} {'untagged (never planned)':>25}")
+    for pkg in gh_list(f"/orgs/{a.org}/packages?package_type=container&per_page=100"):
+        name = pkg["name"]
+        base = f"/orgs/{a.org}/packages/container/{urllib.parse.quote(name, safe='')}"
+        seen.add(name)
+        if name in a.drop:
+            print(f"{name:<34} {pkg.get('version_count') or '?':>5} {'':>6} {0:>5} {'ALL':>5}  (whole package)")
+            targets.append({"path": base, "label": f"whole image {name}"})
+            continue
+        versions = gh_list(f"{base}/versions?per_page=100")
+        delete = container_versions_to_delete(name, versions, a.keep_newest, protect)
+        tagged = [v for v in versions if container_tags(v)]
+        used |= {p for v in tagged for t in container_tags(v) for p in (t, (name, t)) if p in protect}
+        print(f"{name:<34} {len(versions):>5} {len(tagged):>6} {len(tagged) - len(delete):>5} {len(delete):>5} "
+              f"{len(versions) - len(tagged):>25}")
+        targets += [{"path": f"{base}/versions/{v['id']}",
+                     "label": f"{name} {','.join(container_tags(v))} {v['created_at'][:10]}"} for v in delete]
+    for name in set(a.drop) - seen:
+        print(f"WARN --drop {name}: no such container package")
+    for p in protect - used:
+        print(f"WARN --protect {p if isinstance(p, str) else ':'.join(p)} matched no version: typo, or already gone")
+    print("NOTE GitHub does not expose container sizes, so no MB column. Check each kept image still pulls after apply.")
+    rule = f"keep latest + newest {a.keep_newest} tagged + protect {sorted(map(str, a.protect)) or 'none'}; drop {a.drop or 'none'}"
+    write_plan("containers", a.org, rule, targets)
+
+
 # ---- apply ----
 
 def delete(path):
@@ -191,12 +240,17 @@ def main():
     pkg.add_argument("--keep-releases", type=int, default=10)
     pkg.add_argument("--pin", action="append", default=[], help="PACKAGE_PREFIX:VERSION another repo depends on")
     pkg.add_argument("--drop", action="append", default=[], help="delete this whole package")
-    for s in (art, pkg):
+    con = sub.add_parser("containers", help="dry run: plan GHCR container image version deletes")
+    con.add_argument("--keep-newest", type=int, default=10, help="newest tagged versions kept per image")
+    con.add_argument("--protect", action="append", default=[], help="[IMAGE:]TAG deployed or pinned somewhere (deploy repo)")
+    con.add_argument("--drop", action="append", default=[], help="delete this whole image")
+    for s in (art, pkg, con):
         s.add_argument("--org", default="sharanaya-boutique")
     ap = sub.add_parser("apply", help="delete exactly the targets of a reviewed plan")
     ap.add_argument("plan")
     a = p.parse_args()
-    {"artifacts": cmd_artifacts, "packages": cmd_packages, "apply": cmd_apply}[a.cmd](a)
+    {"artifacts": cmd_artifacts, "packages": cmd_packages,
+     "containers": cmd_containers, "apply": cmd_apply}[a.cmd](a)
 
 
 if __name__ == "__main__":

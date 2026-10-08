@@ -18,7 +18,9 @@ python scripts/report.py [--month YYYY-MM] [--enterprise SLUG]
 Read it in this order and report figures, not guesses:
 1. **Billing-lock signals.** A repo whose latest run is a nameless `startup_failure` (path `BuildFailed`) is
    billing-locked, not broken YAML. "Stale" means a normal run elsewhere is newer, so the lock has lifted.
-2. **Storage.** REAL is the bytes stored now. BILLED is yesterday's average from the usage API, which lags a day.
+2. **Storage.** REAL covers Maven-style packages and artifacts only. **Container images (GHCR) are listed separately by
+   version count, because GitHub exposes no sizes for them, yet they bill as Packages storage.** If the billing page
+   shows more than REAL, containers are the usual cause. REAL is the bytes stored now. BILLED is yesterday's average from the usage API, which lags a day.
    A repo billed with no live package means deleted versions are still billing.
 3. **Usage.** Sorted by net cost. A `charged:` line shows how many days a SKU charged and the latest day, which is how
    you see a licence still charging after it was switched off.
@@ -45,7 +47,8 @@ A cleanup alone doesn't fix it: deleted versions keep billing until they purge.
 
 - [ ] 1. Run `report.py`. Know what fills the space, and whether a cleanup is needed at all.
 - [ ] 2. Agree the keep rule with the user. Defaults: **artifacts** are kept if younger than 10 days OR among the
-      newest 10 per repo; **packages** keep the newest 10 `-SNAPSHOT` + 10 release versions each.
+      newest 10 per repo; **packages** keep the newest 10 `-SNAPSHOT` + 10 release versions each; **containers**
+      keep `latest` + the newest 10 tagged versions per image + every tag a deploy repo pins.
 - [ ] 3. Find pinned versions: another repo's pom that depends on a fixed (non-SNAPSHOT) version of an org package.
       `gh search code "com.sharanaya" --owner sharanaya-boutique --filename pom.xml`, read the hits, and pass each
       as `--pin PACKAGE_PREFIX:VERSION` (e.g. `--pin com.sharanaya.securityservice.:0.4.0`).
@@ -55,12 +58,25 @@ A cleanup alone doesn't fix it: deleted versions keep billing until they purge.
       python scripts/prune.py packages --keep-snapshots 10 --keep-releases 10 --pin ... [--drop WHOLE_PACKAGE]
       ```
       `--drop` is for packages nobody consumes: a deprecated repo, or a boot jar every Dockerfile builds from source.
+      **Containers** (usually the biggest part; `packages` only handles Maven):
+      first find what is deployed: `gh search code "ghcr.io/sharanaya-boutique" --owner sharanaya-boutique`, then read the
+      deploy repo's compose files and `.env` version vars (e.g. `infrastructure_pipeline/production/.env.production.example`).
+      Pass each deployed tag as `--protect IMAGE:TAG`:
+      ```
+      python scripts/prune.py containers --keep-newest 10 --protect sor-service:0.21.0 --protect sharanaya-ui:0.4.0-prod [--drop IMAGE]
+      ```
+      It plans **tagged** versions only. Untagged ones are usually child manifests of a kept multi-arch tag, so deleting them
+      can break it; leave them. Sizes are not available, so the table shows counts. Images with no reference anywhere
+      (stale, odd names) are candidates for `--drop`, but confirm with the user first: a base image such as
+      `libpostal-base` is a build input, not a deployed tag.
 - [ ] 5. Show the user the table, every `WARN` line, and the undo story: **artifacts are gone for good**; packages
       are restorable for 30 days unless that version is published again. Wait for an explicit yes.
 - [ ] 6. `python scripts/prune.py apply "<plan.json>"` deletes exactly the reviewed targets: paced, 404 counted as
       done, aborts if the first deletes all fail. For more than ~200 targets run it in the background.
-- [ ] 7. Verify: re-run the same dry run (expect 0 deletes) and `report.py` (REAL storage dropped). BILLED storage
-      can stay high for up to 30 days, because deleted package versions keep billing until they purge.
+- [ ] 7. Verify: re-run the same dry run (expect 0 deletes) and `report.py` (REAL storage dropped, container version
+      count dropped). For containers also confirm a kept image still pulls (`docker manifest inspect
+      ghcr.io/ORG/IMAGE:TAG`). BILLED storage can stay high for up to 30 days, because deleted package versions keep
+      billing until they purge.
 
 Never delete without a dry run the user saw. Never delete a version a `--pin` protects. Never `--drop` a package
 another repo resolves from GitHub Packages.

@@ -115,6 +115,19 @@ Allowances are **per account, not per seat**: adding members raises the cost and
 - Spring Boot jars (~140 MB a version) dominate storage if `mvn deploy` publishes them. Skip publishing any module that
   nobody pulls from the registry.
 
+## Container images (GHCR)
+
+- `GET /orgs/ORG/packages?package_type=container` lists them; versions are at `.../packages/container/NAME/versions`.
+  Names can contain `/` (e.g. `sor-service/sor-db`): URL-encode them in paths (`prune.py` does).
+- **No sizes anywhere.** The GraphQL `PackageFile.size` query behind `report.py`'s REAL line returns nothing for
+  containers, yet they bill as Packages storage. That gap hid ~0.5 GB on the billing page (2026-10-08, 17 images, 1,701
+  versions) behind a REAL of 0.03 GB. `report.py` therefore prints version counts and warns when they are large.
+- A version is tagged (`metadata.container.tags`) or untagged. Untagged versions are typically child manifests/layers of
+  a tagged multi-arch image; leave them unless the whole image goes.
+- CI that tags every build (`sha-…`, version, branch) grows without bound: one image reached 644 versions. Consider a
+  scheduled cleanup or keeping only release tags.
+- Find what is deployed in the deploy repo's compose files and `.env` version vars, and protect those tags.
+
 ## Artifacts
 
 - `GET /repos/ORG/REPO/actions/artifacts` (skip `expired: true`). `DELETE .../actions/artifacts/ID` is permanent.

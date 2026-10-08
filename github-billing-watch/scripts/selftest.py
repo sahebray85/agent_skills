@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from prune import artifacts_to_delete, versions_to_delete  # noqa: E402
+from prune import artifacts_to_delete, container_versions_to_delete, versions_to_delete  # noqa: E402
 from report import HOURS_PER_MONTH, allowance_used, billed_without_live, lock_state  # noqa: E402
 
 now = dt.datetime(2026, 1, 31, tzinfo=dt.timezone.utc)
@@ -33,6 +33,19 @@ assert ids([]) == [1, 2, 13, 14]
 assert ids([("com.x.", "0.1.0")]) == [2, 13, 14], "pinned oldest release survives"
 assert ids([("com.y.", "0.1.0")]) == [1, 2, 13, 14], "a pin only applies to its own package prefix"
 
+
+def cver(i, *tags):
+    return {"id": i, "created_at": f"2026-01-{i:02d}T00:00:00Z", "metadata": {"container": {"tags": list(tags)}}}
+
+
+# ids 1-12 tagged v1..v12, id 13 untagged child manifest, id 14 oldest-looking "latest" is id 2 (re-tagged)
+cvs = [cver(i, f"v{i}") for i in range(1, 13)] + [cver(13)]
+cvs[1] = cver(2, "v2", "latest")
+cids = lambda protect=frozenset(), name="img": sorted(v["id"] for v in container_versions_to_delete(name, cvs, 10, protect))
+assert cids() == [1], "newest 10 tagged kept, `latest` kept even when old, untagged never planned"
+assert cids({"v1"}) == [], "a bare protected tag is kept for any image"
+assert cids({("other", "v1")}) == [1], "an IMAGE:TAG protect only applies to its own image"
+assert cids({("img", "v1")}) == []
 
 def item(product, sku, unit, qty):
     return {"product": product, "sku": sku, "unitType": unit, "quantity": qty}
