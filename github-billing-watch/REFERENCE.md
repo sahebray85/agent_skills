@@ -126,6 +126,7 @@ Allowances are **per account, not per seat**: adding members raises the cost and
   a tagged multi-arch image; leave them unless the whole image goes.
 - CI that tags every build (`sha-…`, version, branch) grows without bound: one image reached 644 versions. Consider a
   scheduled cleanup or keeping only release tags.
+- Builds push many `-SNAPSHOT` tags per release, so "newest N tagged" can contain no release at all (sor-service: 0.37.0 sat behind ~9 snapshots). `--keep-releases` (default 3) keeps the newest releases, i.e. tags with no `snapshot` in them, so rollback always has a target.
 - Find what is deployed in the deploy repo's compose files and `.env` version vars, and protect those tags.
 
 ## Artifacts

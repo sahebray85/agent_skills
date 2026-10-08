@@ -48,7 +48,7 @@ A cleanup alone doesn't fix it: deleted versions keep billing until they purge.
 - [ ] 1. Run `report.py`. Know what fills the space, and whether a cleanup is needed at all.
 - [ ] 2. Agree the keep rule with the user. Defaults: **artifacts** are kept if younger than 10 days OR among the
       newest 10 per repo; **packages** keep the newest 10 `-SNAPSHOT` + 10 release versions each; **containers**
-      keep `latest` + the newest 10 tagged versions per image + every tag a deploy repo pins.
+      keep `latest` + the newest 10 tagged versions + **the newest 3 releases (non-SNAPSHOT tags)** per image + every tag a deploy repo pins.
 - [ ] 3. Find pinned versions: another repo's pom that depends on a fixed (non-SNAPSHOT) version of an org package.
       `gh search code "com.sharanaya" --owner sharanaya-boutique --filename pom.xml`, read the hits, and pass each
       as `--pin PACKAGE_PREFIX:VERSION` (e.g. `--pin com.sharanaya.securityservice.:0.4.0`).
@@ -63,7 +63,7 @@ A cleanup alone doesn't fix it: deleted versions keep billing until they purge.
       deploy repo's compose files and `.env` version vars (e.g. `infrastructure_pipeline/production/.env.production.example`).
       Pass each deployed tag as `--protect IMAGE:TAG`:
       ```
-      python scripts/prune.py containers --keep-newest 10 --protect sor-service:0.21.0 --protect sharanaya-ui:0.4.0-prod [--drop IMAGE]
+      python scripts/prune.py containers --keep-newest 10 --keep-releases 3 --protect sor-service:0.21.0 --protect sharanaya-ui:0.4.0-prod [--drop IMAGE]
       ```
       It plans **tagged** versions only. Untagged ones are usually child manifests of a kept multi-arch tag, so deleting them
       can break it; leave them. Sizes are not available, so the table shows counts. Images with no reference anywhere
