@@ -73,7 +73,8 @@ A cleanup alone doesn't fix it: deleted versions keep billing until they purge.
       are restorable for 30 days unless that version is published again. Wait for an explicit yes.
 - [ ] 6. `python scripts/prune.py apply "<plan.json>"` deletes exactly the reviewed targets: paced, 404 counted as
       done, aborts if the first deletes all fail. For more than ~200 targets run it in the background.
-- [ ] 7. Verify: re-run the same dry run (expect 0 deletes) and `report.py` (REAL storage dropped, container version
+- [ ] 7. (The billing page bar is cumulative for the month and will NOT drop after a cleanup; success is the daily
+      BILLED GB-hours falling to ~0, then the bar resetting on the 1st.) Verify: re-run the same dry run (expect 0 deletes) and `report.py` (REAL storage dropped, container version
       count dropped). For containers also confirm a kept image still pulls (`docker manifest inspect
       ghcr.io/ORG/IMAGE:TAG`). BILLED storage can stay high for up to 30 days, because deleted package versions keep
       billing until they purge.
