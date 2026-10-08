@@ -37,9 +37,12 @@ Only `notes` can be updated on orders, payments and refunds (`update_*` tools).
 - Only `captured` payments can be refunded.
 
 **Order**: `created → attempted → paid`. An order can have several failed payments before one
-succeeds — use `fetch_order_payments`, not "the" payment.
+succeeds — use `fetch_order_payments`, not "the" payment. `attempted` lasts until a payment is
+**captured**; the order stays `paid` even if that payment is later refunded.
 
-**Refund**: `pending → processed` or `failed`. `speed: "optimum"` requests instant where possible.
+**Refund**: `pending → processed` or `failed`. `speed: "normal"` (default) takes 5–7 working days;
+`speed: "optimum"` requests instant where possible. A normal refund **fails for payments older than
+6 months**; instant refunds can also fail on customer-account or bank issues.
 
 **Payment link**: `created`, `partially_paid`, `paid`, `expired`, `cancelled`.
 **QR code**: `active` → `closed`.

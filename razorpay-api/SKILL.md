@@ -12,8 +12,10 @@ description: Reference for the official Razorpay MCP server (all 45 tools) and t
 2. **This skill's local docs** — default reference, read directly. `REFERENCE.md` and the tool
    sections of `docs/api/*.md` are generated from `razorpay-mcp-server` source
    (refresh: `scripts/refresh_tool_docs.py`).
-3. **Official MCP tools list** `https://razorpay.com/docs/mcp-server/tools-reference.md` (39 tools; omits 6 — see REFERENCE.md) and **official raw-markdown docs** when a detail is missing: index `https://razorpay.com/docs/llms.txt`;
-   any `razorpay.com/docs/api/<path>` page ↔ `razorpay.com/docs/build/llm-docs/api/<path>.md`.
+3. **Official MCP tools list** `https://razorpay.com/docs/mcp-server/tools-reference.md` (39 tools; omits 6 — see REFERENCE.md) and **official raw-markdown docs** when a detail is missing: look the page up in the local
+   [docs index](docs/index/README.md) (all pages of `https://razorpay.com/docs/llms.txt`, by family) and fetch
+   its URL; any `razorpay.com/docs/api/<path>` page ↔ `razorpay.com/docs/build/llm-docs/api/<path>.md`.
+   Refresh the index: `scripts/refresh_llms_index.py`.
 
 Local docs are a snapshot. If they disagree with the official page, **the official page wins** —
 say so to the user and suggest re-running `scripts/refresh_tool_docs.py`.
@@ -81,12 +83,37 @@ say so to the user and suggest re-running `scripts/refresh_tool_docs.py`.
 
 ## Not in the MCP — call REST/SDK directly
 
-Customers `/v1/customers` · Plans & Subscriptions `/v1/plans`, `/v1/subscriptions` · Invoices
-`/v1/invoices` · Route transfers `/v1/transfers`, `/v1/payments/{id}/transfers` · Virtual accounts
-`/v1/virtual_accounts` · Disputes `/v1/disputes` · Cancel payment link
-`POST /v1/payment_links/{id}/cancel` · Downtimes `GET /v1/payments/downtimes` · Methods
-`GET /v1/methods` · Creating payouts (RazorpayX) `/v1/payouts`.
+Official pages (fetch for params and samples; `B` = `https://razorpay.com/docs/build/llm-docs`):
+
+| Resource | Endpoint | Page |
+|---|---|---|
+| Customers | `/v1/customers` | `B/api/customers.md` |
+| Plans & Subscriptions | `/v1/plans`, `/v1/subscriptions` | `B/payments/subscriptions/apis.md` |
+| Invoices | `/v1/invoices` | `B/payments/invoices/apis.md` |
+| Route transfers | `/v1/transfers`, `/v1/payments/{id}/transfers` | `B/payments/route/apis.md` (direct: `B/api/payments/route/direct-transfers.md`) |
+| Virtual accounts (Smart Collect) | `/v1/virtual_accounts` | `B/payments/smart-collect/va-vpa-qr/api/create.md` |
+| Disputes | `/v1/disputes` | `B/api/disputes.md` |
+| Cancel payment link | `POST /v1/payment_links/{id}/cancel` | `B/api/payments/payment-links/cancel-standard.md` (UPI: `cancel-upi.md`) |
+| Downtimes | `GET /v1/payments/downtimes` | `B/api/payments/downtime.md` |
+| Methods | `GET /v1/methods` | `B/payments/payment-gateway/s2s-integration/payment-methods/methods-api.md` |
+| Create payouts (RazorpayX) | `/v1/payouts` | `B/api/x.md` |
+
 Base URL `https://api.razorpay.com`, HTTP Basic `key_id:key_secret`.
+
+## Full docs index (everything else on razorpay.com/docs)
+
+[docs/index/README.md](docs/index/README.md) lists every page of llms.txt (title, URL, one line) — find the
+page there, then fetch the URL. Start with the family:
+
+| Need | Index |
+|---|---|
+| REST API reference (customers, disputes, orders, payments, QR, refunds, settlements, partners, X) | [index/api](docs/index/api/README.md) |
+| Payment Gateway, Magic Checkout, Subscriptions, Route, Smart Collect, Payment Links/Pages/Button, Invoices, International, Optimizer, payment methods, dashboard | [index/payments](docs/index/payments/README.md) |
+| Webhook events and payloads | [index/webhooks](docs/index/webhooks.md) |
+| API error codes | [index/errors](docs/index/errors.md) |
+| Official MCP server | [index/mcp-server](docs/index/mcp-server.md) |
+| RazorpayX: payouts, vendor payments, payout links, current accounts | [index/x](docs/index/x/README.md) |
+| Payroll · POS · Partners · Security · n8n node · App Store · Engage · Announcements · FAQs | [payroll](docs/index/payroll.md), [pos](docs/index/pos.md), [partners](docs/index/partners.md), [security](docs/index/security.md), [razorpay-n8n-node](docs/index/razorpay-n8n-node.md), [app-store](docs/index/app-store.md), [engage](docs/index/engage.md), [announcements](docs/index/announcements.md), [faqs](docs/index/faqs.md) |
 
 ## Guardrail for Claude Code users
 
