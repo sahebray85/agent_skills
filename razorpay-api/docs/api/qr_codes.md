@@ -5,16 +5,38 @@
 
 ## Usage notes
 
-- `type` must be `upi_qr` (INR). `usage`: `single_use` (accepts one payment, then closes
+- `type` must be `upi_qr` (INR). The official pages mark it as an on-demand feature: Razorpay
+  Support activates it on the account. `usage`: `single_use` (accepts one payment, then closes
   automatically) or `multiple_use`.
 - `single_use` **requires** `fixed_amount: true` — creation fails otherwise.
 - `fixed_amount: true` requires `payment_amount` (paise, min 1); otherwise payer enters any amount.
-- `close_by` Unix seconds; `customer_id` ties the QR to a customer
-  (`fetch_qr_codes_by_customer_id`).
+- `close_by`: Unix seconds. The official Create page allows it on `single_use` QR codes only and
+  says it errors on `multiple_use`. **The sources disagree on its limits:**
+  - MCP `create_qr_code` schema: "min 2 mins after current time".
+  - Official Create page, request parameter (`api/qr-codes/create.md`): "at least 2 minutes after
+    the current time" and at most 2 hours; `null` becomes 2 hours and a later value is cut to
+    2 hours.
+  - Official Entity, Close, Update and image-content Create pages: "at least 15 minutes after the
+    current time", up to `2147483647`. The Close page adds that a `single_use` QR can run for at
+    most 45 days (also its default) and that a `multiple_use` QR never expires.
+
+  A value 15 minutes ahead satisfies every reading. Store the `close_by` that the response
+  returns, not the one you sent.
+- `customer_id` ties the QR to a customer (`fetch_qr_codes_by_customer_id`).
 - `fetch_payments_for_qr_code` is how you see money received; webhook `qr_code.credited` for
-  real-time.
+  real-time. A QR payment has **`order_id: null`** in both, so match it by the QR id
+  (`payload.qr_code.entity.id`), never by an order.
+- `close_reason`: `on_demand` (closed through the API or Dashboard), `paid` (a single-use QR that
+  closed after its payment), `null` (still open). The Update page also lists `expired` (closed
+  automatically after `close_by`).
+- Webhook `qr_code.closed` fires **only on a manual close**, not when the QR auto-expires. Detect
+  expiry by polling `fetch_qr_code` (`status`, `closed_at`, `close_reason`). Payload shapes and
+  traps: [signatures-and-webhooks.md](../common/signatures-and-webhooks.md).
+- `payments_amount_received` / `payments_count_received` count captured payments only.
 - `close_qr_code` is **local-server only**; status becomes `closed` (with `closed_at`). To accept
   payments again, create a new QR.
+- Dynamic Convenience Fees do not cover QR payments: the official page lists "Smart Collect (via
+  VA, VPA and QR Codes)" as not available ([orders.md](orders.md)).
 
 <!-- GENERATED from razorpay-mcp-server@7950d51 by scripts/refresh_tool_docs.py — edit the hand-written part above this line only. -->
 

@@ -22,10 +22,11 @@ other backends follow the same shape):
 | 6 | `@CrossOrigin(origins = "*")` | Restrict to your frontend origin |
 | 7 | `keySecret.getBytes()` (platform charset) | `getBytes(StandardCharsets.UTF_8)` |
 | 8 | Pins an SDK version | Check the latest `razorpay-java` / SDK release before adding |
+| 9 | Test instructions print card `4111 1111 1111 1111` | That number is not on Razorpay's official test-card pages; use Visa `4100 2800 0000 1007`, Mastercard `5500 6700 0000 1002` or RuPay `6527 6589 0000 1005` ([conventions.md](../common/conventions.md#test-mode)) |
 
 Corrected reference: [signatures-and-webhooks.md](../common/signatures-and-webhooks.md). Useful
-parts to keep: env-var config for keys, `key_id` (never secret) returned to the frontend, test
-instructions (card `4111 1111 1111 1111`, UPI `success@razorpay`).
+parts to keep: env-var config for keys, `key_id` (never secret) returned to the frontend, the test
+UPI ID `success@razorpay` (add `failure@razorpay` for the failure path).
 
 Call order: `detect_stack` (pass the file list + the manifest contents, e.g. `pomXml`) →
 `integrate_razorpay_checkout(language, backendFramework, frontendFramework)`.

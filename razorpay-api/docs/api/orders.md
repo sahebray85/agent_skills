@@ -19,6 +19,64 @@
   `virtual_account`; `from`/`to` Unix seconds; page with `count` (≤ 100) + `skip`.
 - `update_order` edits `notes` only.
 
+## Dynamic Convenience Fees (REST only)
+
+Passes part or all of Razorpay's platform fee for a payment to the payer, with rules set per
+payment method. It is sent as `convenience_fee_config` on `POST /v1/orders`, and the returned
+`order_id` then goes to Standard Checkout as usual. The MCP `create_order` schema has no such
+argument. Official sample, shortened:
+
+```json
+"convenience_fee_config": {
+  "label": "Convenience Fee",
+  "message": "To make payment without any additional charges, please use UPI or Net Banking",
+  "rules": [
+    { "method": "card", "card.type": ["credit", "debit"],
+      "fee": { "payee": "customer", "percentage_value": "100" } },
+    { "method": "netbanking", "fee": { "payee": "customer", "flat_value": 100 } },
+    { "method": "upi", "fee": { "payee": "business", "flat_value": 200 } }
+  ]
+}
+```
+
+| Field | Rule |
+|---|---|
+| `label` | optional, at most 20 characters, default `Convenience Fee` |
+| `message` | optional, at most 120 characters, shown at checkout when a fee applies |
+| `rules[]` | mandatory |
+| `rules[].method` | mandatory: `card`, `netbanking`, `upi` or `wallet` (other values fail, e.g. "emi is not a valid method") |
+| `rules[]."card.type"` | optional array, only with `method: "card"`: `debit`, `credit`, `prepaid`. The key is the literal string `card.type` |
+| `rules[].fee.payee` | mandatory: `customer` or `business` |
+| `rules[].fee.percentage_value` | a **string**, up to two decimal places (a number fails with "percentage_value value should be string") |
+| `rules[].fee.flat_value` | an integer in paise |
+
+Each `fee` carries one of the two values: "Pass either `percentage_value` or `flat_value` to decide
+the final fee split."
+
+**Unit of `percentage_value`**: a plain percent written as a decimal string, not basis points. The
+official parameter text is "The percentage of convenience fee that the customer or business will
+pay. Up to two decimal places are supported.", and the samples use `"100"`, `"50"` and `"20.33"`.
+The base is Razorpay's platform fee for that payment, not the order amount: the same page says
+"the customer will bear 20% of the total platform fee, and the business will bear the rest". The
+FAQ page words it more loosely ("a convenience fee of flat ₹20 on each transaction or 2% of the
+transaction amount"), so place one test-mode order and read the checkout total before you rely on
+the split. `flat_value` is capped at the platform fee: "If this value exceeds the total platform
+fee, then the minimum amount will be considered."
+
+Limits stated on the official pages:
+- Enabled per account by Razorpay Support. Without it the order call fails with "Convenience fee
+  configurable for dynamic fee bearer users only".
+- INR only; not available for international payments.
+- Not available for Smart Collect (VA, VPA and QR Codes), Route, or Subscriptions (Emandate, Paper
+  NACH).
+- The documented flow is Orders API then Standard Checkout. The Payment Links API pages document no
+  `convenience_fee_config` field. The Convenience Fee Model chosen in the Dashboard (Settings →
+  Fee Bearer) is a separate, pre-configured setting that this parameter overrides per order; its
+  page names Payment Links and Payment Pages among the payer flows.
+- On a refund the customer gets the convenience fee back together with the payment amount.
+- The payer sees the fee only at checkout. Razorpay's acknowledgement email shows the total
+  without a breakup, so tell the customer yourself.
+
 <!-- GENERATED from razorpay-mcp-server@7950d51 by scripts/refresh_tool_docs.py — edit the hand-written part above this line only. -->
 
 ## `create_order`
