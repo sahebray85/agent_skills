@@ -6,12 +6,31 @@
 
 - `create_refund` is **local-server only** — the hosted MCP does not expose it. Options: local MCP
   (Docker), Dashboard, or your backend calling `POST /v1/payments/{id}/refund`.
-- Only `captured` payments refund. Multiple partial refunds are allowed up to the captured amount;
+- Only `captured` payments refund; any other state is rejected with "The payment status should be
+  captured for action to be taken." Multiple partial refunds are allowed up to the captured amount;
   check `fetch_multiple_refunds_for_payment` / `amount_refunded` first. The MCP requires `amount`
-  (full refund = pass the remaining captured amount).
-- `speed`: `normal` (default) or `optimum` (instant where possible).
-- `receipt` is your reference, not an idempotency key — re-running a refund call creates another
-  refund. Guard retries in your own code (e.g. unique `(payment_id, reason)` row before calling).
+  (full refund = pass the remaining captured amount). REST treats a missing `amount` as a full
+  refund and rejects `amount: 0` with "Amount cannot be blank."
+- `speed`: `normal` (default, 5-7 working days) or `optimum` (instant where possible). Read the
+  outcome from the response: `speed_requested: "optimum"` with `speed_processed: "normal"` means no
+  instant route was available and the refund went out at normal speed. `speed_processed` is
+  `instant` or `normal`; both fields appear only when `speed` was sent. The call can also fail
+  with "Instant refund not supported for the payment."; retry it without `speed`.
+- **`receipt` is a per-payment idempotency key.** A second refund with the same `receipt` on the
+  same payment is rejected with HTTP 400 "Duplicate receipt found for this refund request." (the
+  official error text adds: "`receipt` is treated as an idempotency key"). Send a stable `receipt`
+  for each intended refund, for example your refund row id. A call without `receipt` has no such
+  protection: repeating it creates another refund.
+- REST also takes the header `X-Refund-Idempotency: <key>` on normal and instant refunds (key of
+  at least 10 characters; letters, digits, `-`, `_`). The same key with the same body is safe to
+  repeat. The same key with a different body is rejected ("Different request with the same
+  idempotency key has already been processed."). A repeat while the first call is still running
+  gets HTTP 409 and can be retried. `create_refund` has no argument for this header.
+- After a timeout you do not know whether the refund exists. Keep guarding with your own row,
+  written before the call and unique per intended refund (e.g. `(payment_id, reason)`), and check
+  `fetch_multiple_refunds_for_payment` before any retry.
+- A `normal` refund on a payment more than 6 months old ends in `status: "failed"`. Instant
+  refunds can also fail on customer-account or bank issues.
 - Money moves and can't be undone: follow the confirmation rule in
   [refunds workflow](../workflows/refunds.md).
 - Status via `fetch_refund` (`pending` → `processed` | `failed`) or webhooks `refund.processed` /

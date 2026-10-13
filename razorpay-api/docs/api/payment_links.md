@@ -6,17 +6,46 @@
 ## Usage notes
 
 - Standard link: `create_payment_link`. UPI-only link: `payment_link_upi_create` (docs call it
-  `create_payment_link_upi`) — INR only, sets `upi_link: "true"`.
-- Customer fields are flat args (`customer_name`, `customer_email`, `customer_contact`); `notify_sms`
-  / `notify_email` make Razorpay send the link; `reminder_enable` for reminders.
-- `expire_by` Unix seconds (default validity ~6 months). `accept_partial` +
-  `first_min_partial_amount` for instalments.
+  `create_payment_link_upi`), which sets `upi_link`.
+- **UPI links** (`upi_link: true`) are INR only, work **only on Android devices** and **only in
+  Live mode** (a test key gets "UPI Payment Links is not supported in Test Mode. Please experience
+  the product in Live Mode."), and take **no partial payments** ("partial payment not supported in
+  upi link"), so they never reach `partially_paid`.
+- **The MCP schema is not the REST body.** The tools take flat args (`customer_name`,
+  `customer_email`, `customer_contact`, `notify_sms`, `notify_email`); `POST /v1/payment_links`
+  takes nested `customer {name, email, contact}` and `notify {sms, email}`. `upi_link` is a JSON
+  boolean in the parameter table and in webhook payloads, but the official curl and entity samples
+  show the string `"true"`: accept both when reading.
+- `notify_sms` / `notify_email` make Razorpay send the link; `reminder_enable` for reminders. The
+  customer's contact and email are not prefilled at checkout; the payer types them again.
+- `expire_by`: Unix seconds, **at least 15 minutes ahead** ("timestamp must be atleast 15 minutes
+  in future") and **at most 6 months** after creation. Omitted = valid for 6 months.
+- `reference_id`: **at most 40 characters** ("reference_id: the length must be no more than 40.")
+  and **unique per link**. A reused value is rejected with "payment link creation with reference ID
+  already attempted"; find the earlier link with `fetch_all_payment_links(reference_id)`.
+- Instalments: `accept_partial: true` + `first_min_partial_amount`, which must be `<= amount`
+  ("first_min_partial_amount must be less than or equal to amount.") and at least 100 for INR.
+  The official error list says it is also rejected when `accept_partial` is `false`.
+- Payment methods shown on the link page (REST only, no MCP arg):
+  `options.checkout.method {netbanking, card, upi, wallet}`, one boolean each, default `true`;
+  `false` hides that method.
 - `callback_url` needs `callback_method: "get"`. Verify the callback's `razorpay_signature` —
   formula in [signatures-and-webhooks.md](../common/signatures-and-webhooks.md).
 - `payment_link_notify` (docs: `send_payment_link`) — `medium` `sms` | `email`; sends a real message
   in live mode; fails for paid/expired/cancelled links.
+- `status`: `created`, `partially_paid`, `paid`, `cancelled`, `expired`. The official states page
+  calls the first state `issued` in its prose; the API value is `created`. A link can be cancelled
+  only before any payment, not in `partially_paid` or `paid`.
 - Track payment via webhook `payment_link.paid` (also `partially_paid`, `expired`, `cancelled`) or
-  `fetch_payment_link`.
+  `fetch_payment_link`, whose `payments[]` lists captured payments only (`payment_id`, `amount`,
+  `method`, `status`) and is `null` or empty until the first one.
+- Razorpay creates an order behind the link. Webhook payloads expose it as
+  `payment_link.entity.order_id` (`order_…`), equal to `payment.entity.order_id`; the REST entity
+  page does not list the field. Payload shapes and traps:
+  [signatures-and-webhooks.md](../common/signatures-and-webhooks.md).
+- Test mode allows at most 30 links per business.
+- Dynamic Convenience Fees are an Orders API feature; the Payment Links API pages document no
+  `convenience_fee_config` field ([orders.md](orders.md)).
 - Not in MCP: cancel a link — `POST /v1/payment_links/{id}/cancel`.
 
 <!-- GENERATED from razorpay-mcp-server@7950d51 by scripts/refresh_tool_docs.py — edit the hand-written part above this line only. -->

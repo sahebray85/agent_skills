@@ -15,7 +15,9 @@ description: Reference for the official Razorpay MCP server (all 45 tools) and t
 3. **Official MCP tools list** `https://razorpay.com/docs/mcp-server/tools-reference.md` (39 tools; omits 6 — see REFERENCE.md) and **official raw-markdown docs** when a detail is missing: look the page up in the local
    [docs index](docs/index/README.md) (all pages of `https://razorpay.com/docs/llms.txt`, by family) and fetch
    its URL; any `razorpay.com/docs/api/<path>` page ↔ `razorpay.com/docs/build/llm-docs/api/<path>.md`.
-   Refresh the index: `scripts/refresh_llms_index.py`.
+   URL layout under `…/llm-docs/`: `payments/<product>/<page>.md` (guides),
+   `api/<resource>/<action>.md` (REST reference), `webhooks/<product>.md` (events and sample
+   payloads); table in REFERENCE.md "Official docs". Refresh the index: `scripts/refresh_llms_index.py`.
 
 Local docs are a snapshot. If they disagree with the official page, **the official page wins** —
 say so to the user and suggest re-running `scripts/refresh_tool_docs.py`.
@@ -53,6 +55,8 @@ say so to the user and suggest re-running `scripts/refresh_tool_docs.py`.
 | "Charged but order unpaid", settlement mismatch | [workflows/reconciliation.md](docs/workflows/reconciliation.md) |
 | UPI Autopay / e-mandate / NACH / saved-card charging | [workflows/recurring_mandate.md](docs/workflows/recurring_mandate.md) |
 | Collect without a site: link or UPI QR | [api/payment_links.md](docs/api/payment_links.md), [api/qr_codes.md](docs/api/qr_codes.md) |
+| Staff-generated payment link or QR, confirmed by webhook → SQS plus a REST status poller | [common/signatures-and-webhooks.md](docs/common/signatures-and-webhooks.md) ("Staff-generated links and QR codes"), [api/payment_links.md](docs/api/payment_links.md), [api/qr_codes.md](docs/api/qr_codes.md) |
+| Pass processing fees to card payers (Dynamic Convenience Fees) | [api/orders.md](docs/api/orders.md) ("Dynamic Convenience Fees"), [workflows/standard_checkout.md](docs/workflows/standard_checkout.md) |
 | Paise, limits, statuses, test cards | [common/conventions.md](docs/common/conventions.md) |
 | A call failed / tool missing / 401 | [common/errors.md](docs/common/errors.md) |
 
@@ -73,6 +77,11 @@ say so to the user and suggest re-running `scripts/refresh_tool_docs.py`.
   header `X-Razorpay-Signature`, dedupe on `x-razorpay-event-id`.
 - **Webhooks are the source of truth** (`order.paid`); the browser callback can be lost. The MCP
   has no webhook tooling — add a handler.
+- **Webhook payloads are loose**: branch on the `status` word, never on `captured` alone;
+  `payment.failed` can be followed by `payment.captured`; `notes` arrives as `[]`, `{}` or `null`.
+  Shapes and traps: [signatures-and-webhooks.md](docs/common/signatures-and-webhooks.md).
+- **Refund `receipt` is a per-payment idempotency key** ("Duplicate receipt found for this refund
+  request."). Send a stable one and still guard retries with your own row.
 - **`integrate_razorpay_checkout` output is a draft**: apply the fix list in
   [checkout_integration.md](docs/api/checkout_integration.md) before writing it to the project.
 - **Authorized ≠ paid**: uncaptured payments auto-refund after 3 days; enable auto-capture or capture.
@@ -94,6 +103,9 @@ Official pages (fetch for params and samples; `B` = `https://razorpay.com/docs/b
 | Virtual accounts (Smart Collect) | `/v1/virtual_accounts` | `B/payments/smart-collect/va-vpa-qr/api/create.md` |
 | Disputes | `/v1/disputes` | `B/api/disputes.md` |
 | Cancel payment link | `POST /v1/payment_links/{id}/cancel` | `B/api/payments/payment-links/cancel-standard.md` (UPI: `cancel-upi.md`) |
+| Payment link method switches | `options.checkout.method` on `POST /v1/payment_links` | `B/api/payments/payment-links/customise-payment-methods.md` |
+| Dynamic Convenience Fees | `convenience_fee_config` on `POST /v1/orders` | `B/payments/dynamic-convenience-fees/api.md` |
+| Idempotent refund retry | header `X-Refund-Idempotency` on `POST /v1/payments/{id}/refund` | `B/api/refunds/normal-refunds-idempotent.md` (instant: `instant-refunds-idempotent.md`) |
 | Downtimes | `GET /v1/payments/downtimes` | `B/api/payments/downtime.md` |
 | Methods | `GET /v1/methods` | `B/payments/payment-gateway/s2s-integration/payment-methods/methods-api.md` |
 | Create payouts (RazorpayX) | `/v1/payouts` | `B/api/x.md` |

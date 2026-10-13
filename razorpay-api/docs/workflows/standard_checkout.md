@@ -18,6 +18,14 @@ Razorpay ──webhook order.paid──▶ Your server /webhook  → source of t
 1. **Keys**: `rzp_test_…` for dev. Secret only on the server (env var / secret manager).
 2. **Create order server-side**: `amount` in paise from *your* DB; persist `order_id` against your
    order before returning it. (MCP: `create_order` for manual tests only.)
+   To pass Razorpay's processing fee to the payer (for example on card payments), add
+   `convenience_fee_config` to this REST call: Dynamic Convenience Fees in
+   [orders.md](../api/orders.md#dynamic-convenience-fees-rest-only). Razorpay Support must enable
+   the feature first, it is INR only, and it is not available for Smart Collect (QR codes
+   included), Route or Subscriptions. When the payer bears a fee, the total charged is the order
+   amount plus that fee. The official pages show no payment sample for that case, so check in test
+   mode how `amount`, `base_amount` and `fee` come back before you write the amount assertion of
+   step 4.
 3. **Frontend**:
    ```html
    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
@@ -45,8 +53,10 @@ Razorpay ──webhook order.paid──▶ Your server /webhook  → source of t
    authorized payments auto-refund after 3 days.
 7. **Backstop**: scheduled job re-checks orders unpaid after N minutes via
    `fetch_order_payments` / `GET /v1/orders/{id}/payments`.
-8. **Test**: card `4111 1111 1111 1111`, UPI `success@razorpay`; then switch to live keys and a
-   live-mode webhook URL.
+8. **Test**: official test cards Visa `4100 2800 0000 1007`, Mastercard `5500 6700 0000 1002`,
+   RuPay `6527 6589 0000 1005` (any CVV, any future expiry); UPI `success@razorpay` to succeed and
+   `failure@razorpay` to fail. Full list and notes: [conventions.md](../common/conventions.md#test-mode).
+   Then switch to live keys and a live-mode webhook URL.
 
 Code for steps 2, 4 and 5 (Spring Boot): [signatures-and-webhooks.md](../common/signatures-and-webhooks.md).
 Scaffolding via MCP: `detect_stack` → `integrate_razorpay_checkout`, then apply the fixes in

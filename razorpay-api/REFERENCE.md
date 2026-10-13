@@ -95,13 +95,23 @@ In Claude Code the tools appear as `mcp__<server-name>__<tool>`, e.g. `mcp__razo
 
 ## Official docs (raw markdown, fetchable)
 
-- Index for LLMs: `https://razorpay.com/docs/llms.txt`
+- Index for LLMs: `https://razorpay.com/docs/llms.txt`. It lists one line per page, and every URL
+  has the form `https://razorpay.com/docs/build/llm-docs/<family>/…/<page>.md` (`B` below is
+  `https://razorpay.com/docs/build/llm-docs`). The local copy, split by family, is
+  [docs/index/README.md](docs/index/README.md); refresh it with `scripts/refresh_llms_index.py`.
+- Layout of the families used most:
+
+  | Family | Layout | Examples |
+  |---|---|---|
+  | Product guides | `B/payments/<product>/<page>.md` | `B/payments/payment-links/upi.md`, `B/payments/qr-codes/states.md`, `B/payments/dynamic-convenience-fees/api.md`, `B/payments/payments/test-card-details.md` |
+  | REST reference | `B/api/<resource>/<action>.md` | `B/api/refunds/create-normal.md`, `B/api/qr-codes/create.md`, `B/api/orders/create.md`, `B/api/payments/capture.md`. Payment sub-products sit one level deeper: `B/api/payments/payment-links/create-standard.md` |
+  | Webhooks | `B/webhooks.md`, `B/webhooks/<product>.md` | `all`, `payments`, `orders`, `payment-links`, `qr-codes`, `refunds` (events and sample payloads); `best-practices`, `validate-test`, `faqs` (delivery rules) |
+  | Errors | `B/errors.md`, `B/errors/<area>/<page>.md` | `B/errors/payments/cards.md` |
+  | MCP server | `B/mcp-server.md`, `B/mcp-server/<page>.md` | `remote`, `local`, `oauth`, `configuration`, `tools-reference`, `faqs`, `use-cases` |
+
 - Any API page `https://razorpay.com/docs/api/<path>` has a raw markdown twin at
-  `https://razorpay.com/docs/build/llm-docs/api/<path>.md`
-  (e.g. `.../llm-docs/api/payments/capture.md`, `.../llm-docs/api/refunds/create-instant.md`).
+  `B/api/<path>.md` (e.g. `B/api/payments/capture.md`, `B/api/refunds/create-instant.md`).
 - MCP tools list (compare names / Remote support): `https://razorpay.com/docs/mcp-server/tools-reference.md`
-- Errors: `https://razorpay.com/docs/build/llm-docs/errors.md`
-- Webhooks: `https://razorpay.com/docs/build/llm-docs/webhooks.md`,
-  `.../llm-docs/webhooks/validate-test.md`
-- MCP server: `https://razorpay.com/docs/build/llm-docs/mcp-server.md` (+ `/remote.md`, `/local.md`,
-  `/oauth.md`, `/configuration.md`, `/tools-reference.md`)
+- Official pages can disagree with each other (for example the QR `close_by` floor in
+  `B/api/qr-codes/create.md` and `B/api/qr-codes/entity.md`, or the Mastercard test card number).
+  Quote the page you used.

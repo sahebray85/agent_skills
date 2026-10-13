@@ -31,15 +31,85 @@ sample payloads: [index/webhooks.md](../index/webhooks.md) → `webhooks/all.md`
 Delivery rules (Razorpay webhook best-practices doc):
 - **At-least-once**: duplicates are normal → dedupe on `x-razorpay-event-id`.
 - **5-second timeout**: no 2xx within 5 s counts as failed and is resent → ack fast, process async.
+  Any non-2xx answer also counts as failed.
 - **Retries** with exponential backoff for 24 h after event creation; still failing → the webhook is
   **disabled** (alert email) and must be re-enabled in Dashboard.
 - **Out of order** is possible (e.g. `payment.captured` after `order.paid`) → make state transitions
   monotonic (never move `PAID` back to `CREATED`).
+- **`payment.failed` is not final**: `payment.failed` followed by `payment.captured` for the same
+  payment is documented as expected behaviour (late authorisation, or the payer retrying inside
+  the UPI app). A later `captured` must win over an earlier `failed`.
+- After rotating the webhook secret, verify retries of older events with the old secret.
+- Razorpay Support can replay a single event for up to 15 days; there is no bulk replay.
 - Port 80/443 only; separate webhook URLs for test and live mode.
 
 If a user-facing screen needs the result before the webhook lands, call `fetch_order` /
 `fetch_payment` — don't trust the client. Backstop: a scheduled job that re-checks orders still
 unpaid after N minutes via `GET /v1/orders/{id}/payments`.
+
+## Payload shapes (official samples)
+
+Envelope: `entity: "event"`, `account_id`, `event`, `contains[]`, `payload`, `created_at`.
+`contains[]` names the keys present under `payload`; each key holds one `entity` object. A payload
+is a snapshot of the entity when the event occurred, not its current state.
+
+| Event | `contains[]` | Fields to read |
+|---|---|---|
+| `order.paid` | `payment`, `order` | `order.entity`: `id` (`order_…`), `amount_paid`, `amount_due`, `status: "paid"`; payment as in the next row |
+| `payment.authorized`, `payment.captured`, `payment.failed` | `payment` | `id`, `status`, `order_id`, `amount`, `method`, `error_*`; on `payment.captured` also `base_amount`, `fee`, `tax` (paise) and `acquirer_data` |
+| `payment_link.paid`, `payment_link.partially_paid` | `payment_link`, `order`, `payment` | `payment_link.entity`: `id`, `status`, `amount`, `amount_paid`, `reference_id`, `order_id`, `upi_link`, `notes`; `payment.entity`: `id`, `status`, `order_id`, `base_amount`, `fee`, `tax`, `acquirer_data` |
+| `payment_link.cancelled`, `payment_link.expired` | `payment_link` | `id`, `status`, `reference_id`, `cancelled_at` / `expired_at` |
+| `qr_code.credited` | `payment`, `qr_code` | `payment.entity`: `id`, `status: "captured"`, `amount`, `order_id: null`, `vpa`, `acquirer_data.rrn`; `qr_code.entity.id` |
+| `qr_code.created`, `qr_code.closed` | `qr_code` | `id`, `status`, `close_by`, `closed_at`, `close_reason` |
+| `refund.created`, `refund.processed`, `refund.failed`, `refund.speed_changed` | `refund`, `payment` | `refund.entity`: `id`, `payment_id`, `amount`, `status`, `speed_requested`, `speed_processed`, `receipt`, `acquirer_data.arn`; `payment.entity`: `amount_refunded`, `refund_status` |
+
+`acquirer_data` depends on the method: `rrn` (UPI), `bank_transaction_id` (netbanking),
+`auth_code` + `rrn` (card), `transaction_id` (wallet), `arn` (refund).
+
+Traps, each one visible in the official sample payloads:
+- **`notes` is not reliably an object.** It arrives as `[]` when empty (payment, order and refund
+  samples), as `null` (payment-link samples), as `{}` (refund API response) or as an object.
+  `acquirer_data` can be `{}`. Parse both leniently.
+- **Order id without prefix.** In `payment_link.*` events `payload.order.entity.id` has no
+  `order_` prefix (`"QflczVVaNJciLq"`), while `payment.entity.order_id` and
+  `payment_link.entity.order_id` carry it (`"order_QflczVVaNJciLq"`). In `order.paid` the order id
+  has the prefix. Normalise before comparing.
+- **Stale QR snapshot.** The `qr_code.credited` sample carries a `qr_code` entity with
+  `status: "active"`, `payments_amount_received: 0` and `payments_count_received: 0` although the
+  payment beside it is `captured`. Take the money facts from `payload.payment.entity`.
+- **`qr_code.closed` fires only on a manual close**, not when the QR auto-expires. The
+  `qr_code.created` sample shows `close_by` as a string; the other QR samples show an integer.
+- **`refund.speed_changed` has no top-level `created_at`**: in the sample it sits inside `payload`.
+  Its refund entity shows `notes: []`, `acquirer_data: {}` and no `batch_id`. The `refund.created`
+  sample already shows `status: "processed"`.
+- **Map by the `status` word, never by `captured` alone.** The Card samples of `payment.failed` and
+  `payment.authorized` both show `captured: true`, and their `error_code` is `""`, not `null`.
+- **`fee`, `tax` and `base_amount` are optional.** The Card sample of `payment.captured` has
+  `fee: null`, `tax: null` and no `base_amount`; the netbanking, wallet and UPI samples have all
+  three.
+- Key order differs between samples (the Card samples are alphabetical), and the payments page
+  says the sequence "is not fixed in the JSON payload". Never depend on it.
+
+## Staff-generated links and QR codes: webhook → queue + status poller
+
+No browser returns to your server in this flow, so confirmation rests on two paths that end in the
+same idempotent state transition:
+
+1. **Webhook → queue.** The endpoint verifies the HMAC on the raw body, puts the raw event and its
+   `x-razorpay-event-id` on a queue (for example SQS) and answers 2xx within 5 seconds. A consumer
+   dedupes on the event id and applies the change. Events: `payment_link.paid`,
+   `payment_link.partially_paid`, `payment_link.expired`, `payment_link.cancelled`,
+   `qr_code.credited`, `qr_code.closed`.
+2. **REST status poller.** A scheduled job re-reads every link or QR that your DB still shows as
+   open after N minutes: `GET /v1/payment_links/{id}` (`status`, `amount_paid`, `payments[]`),
+   `GET /v1/payments/qr_codes/{id}/payments` and `GET /v1/payments/qr_codes/{id}` (`status`,
+   `close_reason`). The poller is required, not optional: an auto-expired QR sends no webhook, a
+   webhook disabled after 24 hours of failures sends nothing, and events can arrive late or out of
+   order.
+
+Match a link event by `payment_link.entity.id` or your `reference_id`. Match a QR payment by
+`qr_code.entity.id`, because its `order_id` is `null`. Field limits:
+[payment_links.md](../api/payment_links.md), [qr_codes.md](../api/qr_codes.md).
 
 ## Spring Boot reference implementation
 
