@@ -128,7 +128,12 @@ Allowances are **per account, not per seat**: adding members raises the cost and
   containers, yet they bill as Packages storage. That gap hid ~0.5 GB on the billing page (2026-10-08, 17 images, 1,701
   versions) behind a REAL of 0.03 GB. `report.py` therefore prints version counts and warns when they are large.
 - A version is tagged (`metadata.container.tags`) or untagged. Untagged versions are typically child manifests/layers of
-  a tagged multi-arch image; leave them unless the whole image goes.
+  a tagged multi-arch image; leave them unless the whole image goes, **or they are orphaned**: a buildx push is a
+  tagged index plus untagged platform/attestation manifests, so a tagged version's children are the digests in
+  `manifests[]` of `ghcr.io/v2/ORG/NAME/manifests/DIGEST` (token from `ghcr.io/token?service=ghcr.io&scope=repository:ORG/NAME:pull`,
+  basic auth with `gh auth token`). An untagged version no tagged manifest lists is dead weight; `prune.py orphans`
+  plans exactly those. If `GITHUB_TOKEN` cannot read a package (`repository: null`, no Actions access granted), the
+  manifest read fails and the command skips that image rather than guess.
 - CI that tags every build (`sha-…`, version, branch) grows without bound: one image reached 644 versions. Consider a
   scheduled cleanup or keeping only release tags.
 - Builds push many `-SNAPSHOT` tags per release, so "newest N tagged" can contain no release at all (sor-service: 0.37.0 sat behind ~9 snapshots). `--keep-releases` (default 3) keeps the newest releases, i.e. tags with no `snapshot` in them, so rollback always has a target.

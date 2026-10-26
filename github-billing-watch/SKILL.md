@@ -66,7 +66,10 @@ A cleanup alone doesn't fix it: deleted versions keep billing until they purge.
       python scripts/prune.py containers --keep-newest 10 --keep-releases 3 --protect sor-service:0.21.0 --protect sharanaya-ui:0.4.0-prod [--drop IMAGE]
       ```
       It plans **tagged** versions only. Untagged ones are usually child manifests of a kept multi-arch tag, so deleting them
-      can break it; leave them. Sizes are not available, so the table shows counts. Images with no reference anywhere
+      can break it; leave them. Once tagged versions are pruned (or after CI has run for a while) their children are
+      orphaned and keep billing: run `python scripts/prune.py orphans [--min-age-days 20]`, which keeps every untagged
+      version a tagged manifest still references and plans only the rest (2026-10-26: 503 versions across the org,
+      287 on sor-service alone). Sizes are not available, so the table shows counts. Images with no reference anywhere
       (stale, odd names) are candidates for `--drop`, but confirm with the user first: a base image such as
       `libpostal-base` is a build input, not a deployed tag.
 - [ ] 5. Show the user the table, every `WARN` line, and the undo story: **artifacts are gone for good**; packages
