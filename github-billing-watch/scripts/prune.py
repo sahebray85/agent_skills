@@ -4,12 +4,14 @@
   prune.py artifacts [--keep-days 10] [--keep-newest 10]                       dry run -> plan JSON
   prune.py packages  [--keep-snapshots 10] [--keep-releases 10] [--pin PREFIX:VERSION]... [--drop NAME]...
   prune.py containers [--keep-newest 10] [--keep-releases 3] [--protect [IMAGE:]TAG]... [--drop NAME]...   GHCR images, tagged versions
-  prune.py apply PLAN_JSON                                                      deletes exactly the plan's targets
+  prune.py orphans [--min-age-days 20]                                          GHCR untagged versions no tagged version needs
+  prune.py apply PLAN_JSON                                                    deletes exactly the plan's targets
 
 Dry runs only read. `apply` is the only command that deletes. Deleted artifacts are gone for good; deleted packages
 and versions are restorable for 30 days unless the same name/version is published again.
 """
 import argparse
+import base64
 import datetime as dt
 import json
 import subprocess
@@ -18,6 +20,7 @@ import tempfile
 import time
 from collections import defaultdict
 import urllib.parse
+import urllib.request
 from pathlib import Path
 
 PLAN_DIR = Path(tempfile.gettempdir()) / "github-billing-watch"
@@ -203,6 +206,58 @@ def cmd_containers(a):
     write_plan("containers", a.org, rule, targets)
 
 
+def registry_headers(org, name, user, token):
+    """Bearer headers for reading a ghcr.io manifest; `token` must be able to read the package."""
+    basic = base64.b64encode(f"{user}:{token}".encode()).decode()
+    req = urllib.request.Request(f"https://ghcr.io/token?service=ghcr.io&scope=repository:{org}/{name}:pull",
+                                 headers={"Authorization": f"Basic {basic}"})
+    bearer = json.load(urllib.request.urlopen(req))["token"]
+    accept = ("application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json, "
+              "application/vnd.oci.image.manifest.v1+json, application/vnd.docker.distribution.manifest.v2+json")
+    return {"Authorization": f"Bearer {bearer}", "Accept": accept}
+
+
+def manifest_children(org, name, digest, headers):
+    req = urllib.request.Request(f"https://ghcr.io/v2/{org}/{name}/manifests/{digest}", headers=headers)
+    return [m["digest"] for m in json.load(urllib.request.urlopen(req)).get("manifests", [])]
+
+
+def cmd_orphans(a):
+    """Untagged GHCR versions that no tagged version references, older than --min-age-days.
+
+    `containers` never plans untagged versions, so deleting tagged ones leaves their child manifests behind as
+    untagged orphans that keep billing. A buildx push is a tagged index plus untagged platform/attestation manifests;
+    children of a kept tag are untagged but required, so this resolves each tagged manifest and keeps its children.
+    A package whose manifests cannot be read is skipped entirely.
+    """
+    user = gh("/user")["login"]
+    token = subprocess.run(["gh", "auth", "token"], capture_output=True, text=True).stdout.strip()
+    cutoff = dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=a.min_age_days)
+    targets = []
+    print(f"{'image':<34} {'total':>5} {'untagged':>8} {'needed':>6} {'del':>5}")
+    for pkg in gh_list(f"/orgs/{a.org}/packages?package_type=container&per_page=100"):
+        name = pkg["name"]
+        base = f"/orgs/{a.org}/packages/container/{urllib.parse.quote(name, safe='')}"
+        versions = gh_list(f"{base}/versions?per_page=100")
+        tagged = [v for v in versions if container_tags(v)]
+        untagged = [v for v in versions if not container_tags(v)]
+        try:
+            headers = registry_headers(a.org, name, user, token)
+            needed = {v["name"] for v in tagged}
+            for v in tagged:
+                needed |= set(manifest_children(a.org, name, v["name"], headers))
+        except Exception as e:
+            print(f"WARN {name}: cannot resolve manifests ({e}); skipped")
+            continue
+        delete = [v for v in untagged if v["name"] not in needed and parse_time(v["created_at"]) < cutoff]
+        print(f"{name:<34} {len(versions):>5} {len(untagged):>8} {len(untagged) - len(delete):>6} {len(delete):>5}")
+        targets += [{"path": f"{base}/versions/{v['id']}", "label": f"{name} {v['name'][:19]} {v['created_at'][:10]}"}
+                    for v in delete]
+    write_plan("container-orphans", a.org,
+               f"untagged container versions not referenced by a tagged version, older than {a.min_age_days} days",
+               targets)
+
+
 # ---- apply ----
 
 def delete(path):
@@ -256,13 +311,15 @@ def main():
                      help="also keep the newest N non-SNAPSHOT release versions per image (rollback floor)")
     con.add_argument("--protect", action="append", default=[], help="[IMAGE:]TAG deployed or pinned somewhere (deploy repo)")
     con.add_argument("--drop", action="append", default=[], help="delete this whole image")
-    for s in (art, pkg, con):
+    orp = sub.add_parser("orphans", help="dry run: plan untagged GHCR versions no tagged version references")
+    orp.add_argument("--min-age-days", type=int, default=20)
+    for s in (art, pkg, con, orp):
         s.add_argument("--org", default="sharanaya-boutique")
     ap = sub.add_parser("apply", help="delete exactly the targets of a reviewed plan")
     ap.add_argument("plan")
     a = p.parse_args()
     {"artifacts": cmd_artifacts, "packages": cmd_packages,
-     "containers": cmd_containers, "apply": cmd_apply}[a.cmd](a)
+     "containers": cmd_containers, "orphans": cmd_orphans, "apply": cmd_apply}[a.cmd](a)
 
 
 if __name__ == "__main__":
