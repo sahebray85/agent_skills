@@ -122,7 +122,8 @@ gh pr view "$PR" --repo "$REPO" --json body --jq .body > body.md   # re-read rig
     replace_section docs-audit b2.md docs.md > new.md )
   gh pr edit "$PR" --repo "$REPO" --body-file new.md
   ```
-  `uc.md` and `docs.md` hold the complete sections, start and end markers included.
+  `uc.md` and `docs.md` hold the complete sections, start and end markers included, each marker alone on its
+  line: a marker that shares a line with other text doesn't count.
 
 ### 7. Confirm
 
@@ -133,7 +134,8 @@ gh pr view "$PR" --repo "$REPO" --json body --jq .body > body.md   # re-read rig
 
 ### 8. Report to the user
 
-- The PR link, and the predicted version and tags (`bash scripts/release/version.sh release minor` where it exists).
+- The PR link, and the predicted version and tags (the **Predicted version** line CI writes in Developer
+  references; it follows the `release:major` label).
 - The User Communication text, so they can copy it.
 - The docs gaps, and whether a docs PR was opened.
 - The warnings in the `checks` section.
